@@ -6,16 +6,24 @@
 
 typedef unsigned int Chunk_ID;
 
-struct chunk
-{
-	__int64 offset;
-	__int64 lenght;
-	Chunk_ID ID;
-};
-
 class ElasticFile
 {
 public:
+	typedef std::basic_string <unsigned char> ustring;
+	enum chunkStatus
+	{
+		NotChanged,
+		Deleted,
+		Modified
+	};
+	struct chunk
+	{
+		__int64 offset;
+		__int64 lenght;
+		Chunk_ID ID;
+		chunkStatus _chunkStatus;
+		ustring usbuffer;
+	};
 	enum EnumFileMode
 	{
 		Append       = 1,
@@ -35,8 +43,7 @@ public:
 
 	typedef EnumFileMode   OpenMode; 
 	typedef EnumSeekOrigin CursorMoveMode;
-	typedef std::basic_string <unsigned char> ustring;
-
+	
 public:
 	ElasticFile(void);
 	~ElasticFile(void);

@@ -207,13 +207,43 @@ ULONG ElasticFile::FileRead( HANDLE file, PBYTE buffer, ULONG size )
 
 ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwrite )
 {
-	unsigned int index = findCursorPositionInVectorBuffer( m_filePos );
+	unsigned int index    = findCursorPositionInVectorBuffer( m_filePos );
 	__int64 startPosition = m_filePos;
 	__int64 endPosition   = m_filePos + size;
+	unsigned int j        = findCursorPositionInVectorBuffer( endPosition );
+	ULONG ulwritten        = 0;
+
 	if( overwrite )
 	{
 		//then  we overwrite all buffer's between index and endPosition
-
+		for( ; index <= j; ++index )
+		{
+			if( startPosition == m_Changes[index].offset )
+			{
+				m_Changes[index].lenght = 
+			}
+			else
+			{
+				if( startPosition > m_Changes[index].offset )
+				{
+					chunk Item;
+					Item.lenght = m_Changes[index].offset + m_Changes[index].lenght - startPosition;
+					Item.offset = startPosition;
+					Item.ID     = ++m_CurrentID;
+					std::vector<chunk>::iterator it = m_Changes.begin();
+					std::advance( it, index + 1 );
+					m_Changes.insert( it, Item );
+					ustring strBuffer( buffer + ulwritten, Item.lenght );
+					m_BufferMap.insert( std::make_pair( Item.ID, strBuffer ) );
+					std::map<Chunk_ID, ustring>::iterator itMap = m_BufferMap.find( m_Changes[index].ID );
+					if( itMap != m_BufferMap.end() )
+					{
+						itMap->second.erase( startPosition - m_Changes[index].offset, m_Changes[index].lenght );
+					}
+					m_Changes[index].lenght = startPosition - m_Changes[index].offset;
+				}
+			}
+		}
 	}
 	else
 	{
