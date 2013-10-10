@@ -2,9 +2,6 @@
 #include <Windows.h>
 #include <string>
 #include <vector>
-#include <map>
-
-typedef unsigned int Chunk_ID;
 
 class ElasticFile
 {
@@ -14,13 +11,13 @@ public:
 	{
 		NotChanged,
 		Deleted,
-		Modified
+		Modified,
+		Extended
 	};
 	struct chunk
 	{
 		__int64 offset;
 		__int64 lenght;
-		Chunk_ID ID;
 		chunkStatus _chunkStatus;
 		ustring usbuffer;
 	};
@@ -97,9 +94,7 @@ private:
 	__int64 m_fileSize;
 	__int64 m_BufferCommitSize;
 	DWORD m_dwSystemGranularity;
-	Chunk_ID  m_CurrentID;
 	std::vector<chunk> m_Changes;
-	std::map<Chunk_ID, ustring> m_BufferMap;
 	
 	HANDLE m_fileHandle;
 };
