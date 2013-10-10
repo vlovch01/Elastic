@@ -95,7 +95,8 @@ private:
 	__int64 m_BufferCommitSize;
 	DWORD m_dwSystemGranularity;
 	std::vector<chunk> m_Changes;
-	
+	std::wstring m_FileName;
+
 	HANDLE m_fileHandle;
 };
 
