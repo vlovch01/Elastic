@@ -1,104 +1,54 @@
 // Elastic.cpp : Defines the entry point for the console application.
 //
 #include "stdafx.h"
-#include <Windows.h>
-#include <strsafe.h>
+#include "ElasticFile.h"
+#include <iostream>
+#include <time.h>
+#include <stdlib.h>
 
-void ErrorExit(LPTSTR lpszFunction) 
-{ 
-    // Retrieve the system error message for the last-error code
-
-    LPVOID lpMsgBuf;
-    LPVOID lpDisplayBuf;
-    DWORD dw = GetLastError(); 
-
-    FormatMessage(
-        FORMAT_MESSAGE_ALLOCATE_BUFFER | 
-        FORMAT_MESSAGE_FROM_SYSTEM |
-        FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL,
-        dw,
-        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-        (LPTSTR) &lpMsgBuf,
-        0, NULL );
-
-    // Display the error message and exit the process
-
-    lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT, 
-        (lstrlen((LPCTSTR)lpMsgBuf) + lstrlen((LPCTSTR)lpszFunction) + 40) * sizeof(TCHAR)); 
-    StringCchPrintf((LPTSTR)lpDisplayBuf, 
-        LocalSize(lpDisplayBuf) / sizeof(TCHAR),
-        TEXT("%s failed with error %d: %s"), 
-        lpszFunction, dw, lpMsgBuf); 
-    MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK); 
-
-    LocalFree(lpMsgBuf);
-    LocalFree(lpDisplayBuf);
-    ExitProcess(dw); 
-}
 int _tmain(int argc, _TCHAR* argv[])
 {
-	HANDLE hFile;
+	__int64 m = 0;
+	__int64 M = 0;
+	__int64 N = 0;
+	std::string alpha="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+	std::wstring strFileName(L"two.txt");
+	ElasticFile elasticFile;
 
-	 hFile = ::CreateFile( TEXT("D:\\Dev\\What.the.Bleep!.Down.the.Rabbit.Hole.mkv"), //CreateFile(TEXT("D:\\Video\\What.the.Bleep!.Down.the.Rabbit.Hole.mkv"), // open One.txt
-		    GENERIC_READ | GENERIC_WRITE,             // open for reading
-            0,                        // do not share
-            NULL,                     // no security
-            OPEN_ALWAYS ,            // existing file only
-            FILE_ATTRIBUTE_NORMAL,    // normal file
-            NULL);
-	 // no attr. template
+	std::cout<<"Input file Name : ";
+	std::wcin>>strFileName;
+	std::cout<<std::endl;
+	std::cout<<"Input first pass number :";
+	std::cin>>m;
+	std::cout<<std::endl;
+	std::cout<<"Input second pass number :";
+	std::cin>>M;
+	std::cout<<"Input number of iterations :";
+	std::cin>>N;
 
-	 if (hFile == INVALID_HANDLE_VALUE)
-	 {
-		 printf("Could not open One.txt."); 
-		 return 0;
-	 }
-
-	 LARGE_INTEGER lint2 = {0};
-	 LARGE_INTEGER result;
-	 lint2.QuadPart = 11595;
-	 //if( ::SetFilePointerEx( hFile, lint2, &result, FILE_BEGIN ) )
-	 //{
-		// if( ::SetEndOfFile( hFile ) )
-		// {
-		//	 printf("File size increasead " );
-		// }
-		// else
-		// {
-		//	ErrorExit(L"SetEndOfFile ");
-		// }
-	 //}
-
-	 HANDLE hMemMap = ::CreateFileMappingW( hFile, 0, PAGE_READWRITE, 0, 0, 0 );
-	 LARGE_INTEGER lint = {0};
-	 BOOL bval = ::GetFileSizeEx( hFile, &lint );
-
-	 _SYSTEM_INFO sysInfo ={0};
-	 ::GetSystemInfo( &sysInfo );
-	 __int64 fileSize = lint.QuadPart;
-	 DWORD dwView = sysInfo.dwAllocationGranularity *2;
-	 //BYTE *pbuf = (BYTE*)::MapViewOfFile( hMemMap, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, 0 );
-
-	 for( __int64 index = 0; index < fileSize; index += dwView )
-	 {
-		 DWORD high = static_cast<DWORD>((index >> 32) & 0xFFFFFFFFul);
-		 DWORD low  = static_cast<DWORD>( index        & 0xFFFFFFFFul);
-		 if( index + dwView > fileSize )
-		 {
-			 dwView = static_cast<DWORD>(fileSize - index);
-		 }
-		 BYTE *pbuf = (BYTE*)::MapViewOfFile( hMemMap, FILE_MAP_READ | FILE_MAP_WRITE, high, low, dwView );
-	 }
-	 printf(" Done \n" );
-	 //pbuf[0] = '^';
-	 //pbuf[1] = '&';
-	 //pbuf[4095] = '^';
-	 //pbuf[11594] = '#';
-	// memcpy( pbuf + 11595, "HELLO WORD ", 4*1024 );
-	 //::UnmapViewOfFile( pbuf );
-	 ::CloseHandle( hMemMap );
-	 ::CloseHandle(hFile);
+	srand( time( NULL ) );
+	HANDLE hFile = elasticFile.FileOpen(strFileName, ElasticFile::Create );
+	
+	for( __int64 index = 1; index <= N; ++index )
+	{
+		ElasticFile::ustring strRand;
+		for( __int64 j = 1; j <= m; ++j )
+		{
+			unsigned short randNumber = rand() % alpha.size();
+			strRand.push_back( alpha[ rand() % alpha.size() ] );
+		}
+		std::cout<<strRand.c_str()<<std::endl;
+		elasticFile.FileWrite( hFile, static_cast<PBYTE>(const_cast<unsigned char*>(strRand.c_str() ) ), m, false );
+	}
+	
+	elasticFile.FileSetCursor( hFile, 15, ElasticFile::Begin );
+	BYTE buffer[21] = "0011223344556677";
+	elasticFile.FileWrite( hFile, buffer, 16, true );
+	elasticFile.FileSetCursor( hFile, 25, ElasticFile::Begin );
+	BYTE buff[21] = "!!@@##$$%%^^&&";
+	elasticFile.FileWrite( hFile, buff, 14, true );
+	elasticFile.FileSetCursor( hFile, 16 * 1024, ElasticFile::CursorMoveMode::End );
+	//elastiFile.FileSetCursor( hFile, 3 * 1024 * 1024, ElasticFile::Begin );
 	return 0;
 }
 

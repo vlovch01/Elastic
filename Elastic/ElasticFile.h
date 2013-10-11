@@ -80,12 +80,14 @@ public:
 	//
 	///Closes the file using its handle passed with File parameter.
 	///Returns True on success, False otherwise.
-	bool FileClose( HANDLE file );
+	BOOL FileClose( HANDLE file );
 private:
 	void ErrorExit(LPTSTR lpszFunction);
 	void updateDataFile();
 	unsigned int findCursorPositionInVectorBuffer( __int64 position )const;
-	inline bool checkIfCommit()const;
+	void checkIfCommit();
+	DWORD writeToFile( HANDLE hFile, PBYTE pBufer, __int64 offset, DWORD dwLength ); 
+
 	ElasticFile( const ElasticFile& );
 	ElasticFile& operator=( const ElasticFile& );
 private:
@@ -93,6 +95,7 @@ private:
 	__int64 m_filePos;
 	__int64 m_fileSize;
 	__int64 m_BufferCommitSize;
+	OpenMode m_mode;
 	DWORD m_dwSystemGranularity;
 	std::vector<chunk> m_Changes;
 	std::wstring m_FileName;

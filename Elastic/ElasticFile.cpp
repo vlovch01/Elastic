@@ -5,52 +5,62 @@
 
 ElasticFile::ElasticFile(void) : m_filePos(0), m_fileSize(0), m_BufferCommitSize( 0 ), m_dwSystemGranularity( 0 )
 {
+	_SYSTEM_INFO sysInfo ={0};
+	::GetSystemInfo( &sysInfo );
+	m_dwSystemGranularity = sysInfo.dwAllocationGranularity * 2;
+
 }
 
 
 ElasticFile::~ElasticFile(void)
 {
-	updateDataFile();
+	FileClose( m_fileHandle );
 }
 
 HANDLE ElasticFile::FileOpen( std::wstring& FileName, OpenMode Mode )
 {
 	HANDLE hFile;
-	DWORD dwMode = 0;
-	DWORD dwOpen = 0;
 	m_FileName.assign( FileName );
+	DWORD dwOpen = 0;
+	DWORD dwMode = 0;
+	m_mode = Mode;
+
+	if( !m_Changes.empty() )
+	{
+		std::vector<chunk>().swap( m_Changes );
+	}
 
 	while( Mode )
 	{
 		switch( Mode )
 		{
-		case OpenMode::Append:
-			dwOpen = OPEN_EXISTING;
-			Mode = static_cast<OpenMode>( Mode & OpenMode::Append);
+		case Append:
+			dwMode = OPEN_EXISTING;
+			Mode = static_cast<OpenMode>( Mode & ~Append);
 			break;
-		case OpenMode::Create:
-			dwOpen = CREATE_ALWAYS;
-			Mode = static_cast<OpenMode>( Mode & OpenMode::Create );
+		case Create:
+			dwMode = CREATE_ALWAYS;
+			Mode = static_cast<OpenMode>( Mode & ~Create );
 			break;
-		case OpenMode::CreateNew:
-			dwOpen = CREATE_NEW;
-			Mode = static_cast<OpenMode>( Mode & OpenMode::CreateNew );
+		case CreateNew:
+			dwMode = CREATE_NEW;
+			Mode = static_cast<OpenMode>( Mode & ~CreateNew );
 			break;
-		case OpenMode::Open:
-			dwOpen = OPEN_EXISTING;
-			Mode = static_cast<OpenMode>( Mode & OpenMode::Open );
+		case Open:
+			dwMode = OPEN_EXISTING;
+			Mode = static_cast<OpenMode>( Mode & ~Open );
 			break;
-		case OpenMode::OpenOrCreate:
-			dwOpen = OPEN_EXISTING | CREATE_NEW;
-			Mode = static_cast<OpenMode>( Mode & OpenMode::OpenOrCreate );
+		case OpenOrCreate:
+			dwMode = OPEN_EXISTING | CREATE_NEW;
+			Mode = static_cast<OpenMode>( Mode & ~OpenOrCreate );
 			break;
-		case OpenMode::Truncate:
-			dwOpen = TRUNCATE_EXISTING;
-			Mode = static_cast<OpenMode>( Mode & OpenMode::Truncate );
+		case Truncate:
+			dwMode = TRUNCATE_EXISTING;
+			Mode = static_cast<OpenMode>( Mode & ~Truncate );
 			break;
 
 		default:
-			dwOpen = OPEN_EXISTING;
+			dwMode = OPEN_EXISTING;
 		}
 		dwMode = dwMode | dwOpen;
 	}
@@ -66,7 +76,7 @@ HANDLE ElasticFile::FileOpen( std::wstring& FileName, OpenMode Mode )
 	chunk start;
 	start.offset = 0;
 	start.lenght = 0;
-	start._chunkStatus = chunkStatus::NotChanged;
+	start._chunkStatus = NotChanged;
 	LARGE_INTEGER largeInt;
 	if( ::GetFileSizeEx( hFile, &largeInt ) )
 	{
@@ -77,20 +87,13 @@ HANDLE ElasticFile::FileOpen( std::wstring& FileName, OpenMode Mode )
 	m_Changes.push_back( start );
 	m_filePos = 0;
 
-	 _SYSTEM_INFO sysInfo ={0};
-	 ::GetSystemInfo( &sysInfo );
-	 m_dwSystemGranularity = sysInfo.dwAllocationGranularity * 2;
-
 	return hFile;
 }
 
 BOOL ElasticFile::FileSetCursor( HANDLE file, ULONG Offset, CursorMoveMode Mode )
 {
-	if( checkIfCommit() )
-	{
-		updateDataFile();
-	}
-
+	checkIfCommit();
+	
 	DWORD dwMode = FILE_CURRENT;
 	switch( Mode )//set where cursor should be located after adding Offset 
 	{
@@ -98,7 +101,11 @@ BOOL ElasticFile::FileSetCursor( HANDLE file, ULONG Offset, CursorMoveMode Mode 
 			break;
 		case Current: dwMode = FILE_CURRENT; m_filePos += Offset;
 			break;
-		case End:    dwMode = FILE_END; m_filePos = m_fileSize - Offset;
+		case End:    dwMode = FILE_END;
+			if( m_fileSize - Offset > 0 ) 
+			{
+				 m_filePos = m_fileSize - Offset;
+			}
 			break;
 	}//m_filePos changed
 
@@ -109,10 +116,10 @@ BOOL ElasticFile::FileSetCursor( HANDLE file, ULONG Offset, CursorMoveMode Mode 
 		if( m_filePos > m_fileSize )
 		{
 			//If the new cursor position is beyond the data which this file contains, the file must be extended up to the required size.
-			m_Changes[ m_Changes.size() - 1].lenght += Offset;
-			ustring str( ' ', Offset );
+			m_Changes[ m_Changes.size() - 1].lenght += m_filePos - m_fileSize;
+			ustring str( m_filePos - m_fileSize, ' ' );
 			m_Changes[ m_Changes.size() - 1].usbuffer.append( str );
-			m_BufferCommitSize += Offset;
+			m_BufferCommitSize += m_filePos - m_fileSize;
 
 			if( ::SetEndOfFile( file ) )
 			{
@@ -130,6 +137,7 @@ BOOL ElasticFile::FileSetCursor( HANDLE file, ULONG Offset, CursorMoveMode Mode 
 		ErrorExit(L"SetFilePointerEx");
 		return FALSE;
 	}
+	return FALSE;
 }
 
 
@@ -149,10 +157,7 @@ ULONG ElasticFile::FileRead( HANDLE file, PBYTE buffer, ULONG size )
 		return 0;
 	}
 
-	if( checkIfCommit() )
-	{
-		updateDataFile();
-	}
+	checkIfCommit();
 	//Find where in file vector of chuncks is placed our currsor 
 	//then find buffer from map
 	unsigned int index    = findCursorPositionInVectorBuffer( m_filePos );
@@ -173,7 +178,7 @@ ULONG ElasticFile::FileRead( HANDLE file, PBYTE buffer, ULONG size )
 		//std::map< Chunk_ID, ustring>::iterator it = m_BufferMap.find( m_Changes[index].ID );
 		if( !m_Changes[index].usbuffer.empty() )
 		{	//read from map buffer because we have changes
-			unsigned int startCopy = startPosition - m_Changes[index].offset;
+			__int64 startCopy = startPosition - m_Changes[index].offset;
 			memcpy( buffer + bufferSize, m_Changes[index].usbuffer.c_str() + startCopy, m_Changes[index].usbuffer.size() - 1 - startCopy );
 			bufferSize += m_Changes[index].usbuffer.size() - startCopy;
 		}
@@ -217,20 +222,18 @@ ULONG ElasticFile::FileRead( HANDLE file, PBYTE buffer, ULONG size )
 
 ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwrite )
 {
-	if( checkIfCommit() )
-	{
-		updateDataFile();
-	}
+	checkIfCommit();
+
 	unsigned int index    = findCursorPositionInVectorBuffer( m_filePos );
 	__int64 startPosition = m_filePos;
 	__int64 endPosition   = m_filePos + size;
 	unsigned int j        = findCursorPositionInVectorBuffer( endPosition );
-	ULONG ulwritten        = 0;
+	ULONG ulwritten       = 0;
 
 	if( overwrite )
 	{
 		//then  we overwrite all buffer's between index and endPosition
-		while( startPosition <= endPosition )
+		while( startPosition < endPosition && index <= m_Changes.size() - 1 )
 		{
 			if( m_Changes[index].lenght > 0 )
 			{
@@ -241,21 +244,26 @@ ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwr
 					__int64 numElToCopy = std::min( m_Changes[index].lenght - ( startPosition - m_Changes[index].offset ), endPosition - startPosition );
 
 					strToAdd.append( buffer + ulwritten, numElToCopy );
+					if( size - ulwritten < m_Changes[index].lenght )
+					{
+						//add the rest of the string
+						strToAdd.append( m_Changes[index].usbuffer.c_str() + size - ulwritten, m_Changes[index].lenght - ( size - ulwritten ));
+					}
 					m_Changes[index].usbuffer.swap( strToAdd );
-					ulwritten += numElToCopy + 1;
-					startPosition += numElToCopy + 1;
+					ulwritten += numElToCopy;
+					startPosition += numElToCopy;
 				}
 				else
 				{
 					//this chunk was't updated yet so we add a new buffer
 					chunk Item;
-					Item._chunkStatus = chunkStatus::Modified;
+					Item._chunkStatus = Modified;
 					Item.offset       = startPosition;
 					Item.lenght       = std::min( m_Changes[index].offset + m_Changes[index].lenght - startPosition, endPosition - startPosition );
 
 					ustring strToAdd( buffer + ulwritten, Item.lenght );
-					ulwritten     += Item.lenght + 1;
-					startPosition += Item.lenght + 1;
+					ulwritten     += Item.lenght;
+					startPosition += Item.lenght;
 
 					std::vector<chunk>::iterator it = m_Changes.begin();
 					if( index + 1 < m_Changes.size() )
@@ -272,7 +280,7 @@ ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwr
 					{
 					//then we should add another Item
 						chunk rest;
-						rest._chunkStatus  = chunkStatus::Modified;
+						rest._chunkStatus  = Modified;
 						rest.offset        = startPosition;
 						rest.lenght        = m_Changes[index].lenght - endPosition - m_Changes[index].offset;
 						//buffer we don't change
@@ -307,7 +315,13 @@ ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwr
 		if( index + 1 < m_Changes.size() )
 		{
 			std::advance( it, index + 1 );
-			m_Changes.insert( it, Item );
+			it = m_Changes.insert( it, Item );
+			++it;
+			while( it != m_Changes.end() )
+			{
+				(*it).offset += Item.lenght;
+				++it;
+			}
 		}
 		else
 		{
@@ -322,12 +336,13 @@ ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwr
 			chunk rest;
 			rest.usbuffer.assign( strRest );
 			rest.lenght = m_Changes[index].lenght  - numElem;
-			rest.offset = Item.lenght + Item.offset + 1;
+			rest.offset = Item.lenght + Item.offset;
 
 			if( index + 2 < m_Changes.size() )
 			{
 				it = m_Changes.begin();
 				std::advance( it, index + 2 );
+				it = m_Changes.insert( it, rest );
 			}
 			else
 			{
@@ -335,24 +350,25 @@ ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwr
 			}
 			m_Changes[index].lenght = numElem;
 		}
+		m_BufferCommitSize += ulwritten;
+		m_fileSize         += ulwritten;
 	}
 
-	m_Changes.erase( std::remove_if( m_Changes.begin(), m_Changes.end(), 
-		[]( const chunk& obj )
+	if( m_Changes.size() > 1 )
 	{
-		return obj.lenght == 0;
-	}), m_Changes.end() );
-	m_BufferCommitSize += ulwritten;
-
+		m_Changes.erase( std::remove_if( m_Changes.begin(), m_Changes.end(), 
+			[]( const chunk& obj )
+		{
+			return obj.lenght == 0;
+		}), m_Changes.end() );
+	}
+	
 	return ulwritten;
 }
 
 bool ElasticFile::FileTruncate( HANDLE file, ULONG cutSize )
 {
-	if( checkIfCommit() )
-	{
-		updateDataFile();
-	}
+	checkIfCommit();
 	//TODO if m_Changes.size() == 1 then do truncation in place
 	unsigned int index    = findCursorPositionInVectorBuffer( m_filePos );
 	unsigned int tempIndex = index;
@@ -370,7 +386,7 @@ bool ElasticFile::FileTruncate( HANDLE file, ULONG cutSize )
 	
 		if( m_Changes[index].lenght == 0 )
 		{
-			m_Changes[index]._chunkStatus = chunkStatus::Deleted;//mark to delete
+			m_Changes[index]._chunkStatus = Deleted;//mark to delete
 		}
 		else
 		{
@@ -384,20 +400,27 @@ bool ElasticFile::FileTruncate( HANDLE file, ULONG cutSize )
 		startPosition = m_Changes[index].offset;
 	}
 	
-	//remove vector items with length == 0 
-	m_Changes.erase( std::remove_if( m_Changes.begin(), m_Changes.end(), 
-								[]( const chunk& obj )
-								{
-									return obj.lenght == 0;
-								}), m_Changes.end() );
-
+	//remove vector items with length == 0
+	if( m_Changes.size() > 1 )
+	{
+		m_Changes.erase( std::remove_if( m_Changes.begin(), m_Changes.end(), 
+			[]( const chunk& obj )
+		{
+			return obj.lenght == 0;
+		}), m_Changes.end() );
+	}
 	return TRUE;
 }
 
-bool ElasticFile::FileClose( HANDLE file )
+BOOL ElasticFile::FileClose( HANDLE file )
 {
+	BOOL value = FALSE;
 	updateDataFile();
-	return ::CloseHandle( file );
+	if( file ) 
+	{
+		value = ::CloseHandle( file );
+	}
+	return value;
 }
 
 unsigned int ElasticFile::findCursorPositionInVectorBuffer( __int64 position )const
@@ -405,22 +428,32 @@ unsigned int ElasticFile::findCursorPositionInVectorBuffer( __int64 position )co
 	unsigned int index = 0;
 	for( ; index < m_Changes.size(); ++index)
 	{
-		if( m_Changes[index].offset < position && m_Changes[index].lenght > position )
+		if( m_Changes[index].offset <= position && m_Changes[index].offset + m_Changes[index].lenght > position )
 		{
-			break;
+			return index;
 		}
 	}
-	return index;
+	return 0;
 }
 
-inline bool ElasticFile::checkIfCommit()const
+void ElasticFile::checkIfCommit()
 {
-	return ( m_BufferCommitSize < 300 * 1024 * 1024 && m_Changes.size() < 1000 );//no more then 300MB and 1000 elements in vector buffer
+	if ( m_BufferCommitSize < 1 * 1024 * 1024 && m_Changes.size() > 1000 )//no more then 300MB and 1000 elements in vector buffer
+	{
+		updateDataFile();
+		FileOpen( m_FileName, m_mode );//reopen file after update
+	}
 }
 void ElasticFile::updateDataFile()
 {
+	if( m_Changes.size() <= 1 && m_Changes[0].lenght == 0 )
+	{
+		return;
+	}
+
 	HANDLE hTempFile;
 	const unsigned int lenPath = 261;
+	__int64 tempFileCursor = m_Changes[0].offset;
 
 	TCHAR tempFileName[lenPath] = {'\0'};
 	if( ::GetTempPath( lenPath, tempFileName ) )
@@ -459,22 +492,53 @@ void ElasticFile::updateDataFile()
 						dwview = static_cast<DWORD>(m_fileSize - j);//for last step when buffer is smaller then page size
 					}
 					BYTE *pbuf = (BYTE*)::MapViewOfFile( hMemMap, FILE_MAP_READ, high, low, dwview );
-					//memcpy( buffer + bufferSize, pbuf, dwview );
 					
+					tempFileCursor += writeToFile( hTempFile, pbuf, tempFileCursor, (*it).lenght );
+
 					::UnmapViewOfFile( pbuf );
 				}
 			}
 			else
 			{
 				//read from buffer
-
+				tempFileCursor += writeToFile( hTempFile, static_cast<PBYTE>(const_cast<unsigned char*>((*it).usbuffer.c_str())), tempFileCursor, (*it).lenght );
 			}
 		}
 
 	}
-		::CloseHandle( hMemMap );
+	
+	::CloseHandle( hMemMap );
 	::CloseHandle( hTempFile );
-	::MoveFileEx( tempFileName, m_FileName.c_str() , MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED );
+	
+	TCHAR fileFullPath[MAX_PATH] = {'\0'};
+	::GetFullPathName( m_FileName.c_str(), MAX_PATH, fileFullPath, NULL );
+	::MoveFileEx( tempFileName, fileFullPath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED );
+}
+
+DWORD ElasticFile::writeToFile( HANDLE hFile, PBYTE pBufer, __int64 offset, DWORD dwLength )
+{
+	LARGE_INTEGER lInt ={ 0 };
+	lInt.QuadPart =  ( offset == 0 ? 0 : offset  );
+
+	if( ::SetFilePointerEx( hFile, lInt, 0, FILE_BEGIN ) )
+	{
+		DWORD dwWritten = 0;
+		if( ::WriteFile( hFile, pBufer, dwLength, &dwWritten, 0 ) )
+		{
+			return dwWritten;
+		}
+		else
+		{
+			ErrorExit(L"WriteFile");
+			return 0;
+		}
+	}
+	else
+	{
+		ErrorExit(L"SetFilePointerEx");
+		return 0;
+	}
+	return 0;
 }
 
 void ElasticFile::ErrorExit(LPTSTR lpszFunction) 
