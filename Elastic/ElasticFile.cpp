@@ -240,7 +240,7 @@ ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwr
 			{
 				if( !m_Changes[index].usbuffer.empty() )
 				{
-					//because buffer is not empty we can do inplace changes(overwrite privious cahanges)
+					//because buffer is not empty we can do inplace changes(overwrite privious changes)
 					strToAdd.assign( m_Changes[index].usbuffer.c_str(), startPosition - m_Changes[index].offset );//form the beginning of previos buff copy 
 					__int64 numElToCopy = std::min( m_Changes[index].lenght - ( startPosition - m_Changes[index].offset ), endPosition - startPosition );
 					
@@ -330,7 +330,7 @@ ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwr
 			m_Changes.push_back( Item );
 		}
 		__int64 numElem = startPosition - m_Changes[index].offset;
-		if( !m_Changes[index].usbuffer.empty() )
+		if( !m_Changes[index].usbuffer.empty() && m_filePos + size != m_Changes[index].offset )
 		{
 			//if is not empty then we should split the index buf in two Items
 			ustring strRest = m_Changes[index].usbuffer.substr( numElem, m_Changes[index].lenght );

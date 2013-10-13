@@ -56,8 +56,8 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 		elasticFile.FileSetCursor( hFile, index * m + ( index - 1 ) * M, ElasticFile::Begin );
 		elasticFile.FileWrite( hFile, static_cast<PBYTE>( const_cast<unsigned char*>( strRand.c_str() ) ), M, false );
-		strRand.clear();
 		std::cout<<strRand.c_str()<<std::endl;
+		strRand.clear();
 	}
 
 
