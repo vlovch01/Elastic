@@ -86,6 +86,7 @@ HANDLE ElasticFile::FileOpen( std::wstring& FileName, OpenMode Mode )
 	
 	m_Changes.push_back( start );
 	m_filePos = 0;
+	m_BufferCommitSize = 0;
 
 	return hFile;
 }
@@ -227,8 +228,8 @@ ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwr
 	unsigned int index    = findCursorPositionInVectorBuffer( m_filePos );
 	__int64 startPosition = m_filePos;
 	__int64 endPosition   = m_filePos + size;
-	unsigned int j        = findCursorPositionInVectorBuffer( endPosition );
 	ULONG ulwritten       = 0;
+	ustring strToAdd;
 
 	if( overwrite )
 	{
@@ -240,9 +241,9 @@ ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwr
 				if( !m_Changes[index].usbuffer.empty() )
 				{
 					//because buffer is not empty we can do inplace changes(overwrite privious cahanges)
-					ustring strToAdd( m_Changes[index].usbuffer.c_str(), startPosition - m_Changes[index].offset );//form the beginning of previos buff copy 
+					strToAdd.assign( m_Changes[index].usbuffer.c_str(), startPosition - m_Changes[index].offset );//form the beginning of previos buff copy 
 					__int64 numElToCopy = std::min( m_Changes[index].lenght - ( startPosition - m_Changes[index].offset ), endPosition - startPosition );
-
+					
 					strToAdd.append( buffer + ulwritten, numElToCopy );
 					if( size - ulwritten < m_Changes[index].lenght )
 					{
@@ -252,6 +253,7 @@ ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwr
 					m_Changes[index].usbuffer.swap( strToAdd );
 					ulwritten += numElToCopy;
 					startPosition += numElToCopy;
+					strToAdd.clear();
 				}
 				else
 				{
@@ -261,7 +263,7 @@ ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwr
 					Item.offset       = startPosition;
 					Item.lenght       = std::min( m_Changes[index].offset + m_Changes[index].lenght - startPosition, endPosition - startPosition );
 
-					ustring strToAdd( buffer + ulwritten, Item.lenght );
+					strToAdd.assign( buffer + ulwritten, Item.lenght );
 					ulwritten     += Item.lenght;
 					startPosition += Item.lenght;
 
@@ -428,20 +430,21 @@ unsigned int ElasticFile::findCursorPositionInVectorBuffer( __int64 position )co
 	unsigned int index = 0;
 	for( ; index < m_Changes.size(); ++index)
 	{
-		if( m_Changes[index].offset <= position && m_Changes[index].offset + m_Changes[index].lenght > position )
+		if( m_Changes[index].offset <= position && m_Changes[index].offset + m_Changes[index].lenght >= position )
 		{
 			return index;
 		}
 	}
+
 	return 0;
 }
 
 void ElasticFile::checkIfCommit()
 {
-	if ( m_BufferCommitSize < 1 * 1024 * 1024 && m_Changes.size() > 1000 )//no more then 300MB and 1000 elements in vector buffer
+	if ( m_BufferCommitSize > 1 * 1024 * 1024 || m_Changes.size() > 9 )//no more then 300MB and 1000 elements in vector buffer
 	{
 		updateDataFile();
-		FileOpen( m_FileName, m_mode );//reopen file after update
+		FileOpen( m_FileName, Open );//reopen file after update
 	}
 }
 void ElasticFile::updateDataFile()
