@@ -330,13 +330,17 @@ ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwr
 			m_Changes.push_back( Item );
 		}
 		__int64 numElem = startPosition - m_Changes[index].offset;
-		if( !m_Changes[index].usbuffer.empty() && m_filePos + size != m_Changes[index].offset )
+		if( m_filePos + size != m_Changes[index].offset )
 		{
-			//if is not empty then we should split the index buf in two Items
-			ustring strRest = m_Changes[index].usbuffer.substr( numElem, m_Changes[index].lenght );
-			m_Changes[index].usbuffer.erase( numElem, m_Changes[index].lenght );
 			chunk rest;
-			rest.usbuffer.assign( strRest );
+			//if is not empty then we should split the index buf in two Items
+			if( !m_Changes[index].usbuffer.empty() )
+			{
+				ustring strRest = m_Changes[index].usbuffer.substr( numElem, m_Changes[index].lenght );
+				m_Changes[index].usbuffer.erase( numElem, m_Changes[index].lenght );
+				rest.usbuffer.assign( strRest );
+			}
+			
 			rest.lenght = m_Changes[index].lenght  - numElem;
 			rest.offset = Item.lenght + Item.offset;
 
@@ -467,7 +471,7 @@ void ElasticFile::updateDataFile()
 			LARGE_INTEGER set;
 			LARGE_INTEGER result;
 
-			set.QuadPart = m_BufferCommitSize;
+			set.QuadPart = m_fileSize;
 			if( ::SetFilePointerEx( hTempFile, set, &result, FILE_BEGIN ) )
 			{
 				::SetEndOfFile( hTempFile );
@@ -494,7 +498,7 @@ void ElasticFile::updateDataFile()
 					{
 						dwview = static_cast<DWORD>(m_fileSize - j);//for last step when buffer is smaller then page size
 					}
-					BYTE *pbuf = (BYTE*)::MapViewOfFile( hMemMap, FILE_MAP_READ, high, low, dwview );
+					BYTE *pbuf = (BYTE*)::MapViewOfFile( hMemMap, FILE_MAP_READ, high, low, 0 );
 					
 					tempFileCursor += writeToFile( hTempFile, pbuf, tempFileCursor, (*it).lenght );
 
