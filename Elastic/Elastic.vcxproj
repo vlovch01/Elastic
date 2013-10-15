@@ -78,12 +78,14 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ElasticFile.h" />
+    <ClInclude Include="MemoFile.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Elastic.cpp" />
     <ClCompile Include="ElasticFile.cpp" />
+    <ClCompile Include="MemoFile.cpp" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
