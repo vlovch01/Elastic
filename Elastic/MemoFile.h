@@ -1,5 +1,5 @@
 #pragma once
-#include <vector>
+#include <list>
 #include <xstring>
 #include <Windows.h>
 
@@ -24,12 +24,12 @@ public:
 private:
 	MemoFile( const MemoFile& );
 	MemoFile& operator=( const MemoFile& );
-	inline std::vector<slice>::iterator findPositionInVector( __int64 startPos );
+	inline std::list<slice>::iterator findPositionInVector( __int64 startPos );
 
 	ULONG insertOverWrite( __int64 startPos, PBYTE buffer, ULONG size );
 	ULONG insertNoOverWrite( __int64 startPost, PBYTE buffer, ULONG size );
 
-	std::vector<slice> m_VecChanges;
+	std::list<slice> m_VecChanges;
 	__int64 m_CommitSize;
 };
 
