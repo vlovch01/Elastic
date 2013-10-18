@@ -2,6 +2,9 @@
 #include <Windows.h>
 #include <string>
 #include <vector>
+#include <memory>
+
+class MemoFile;
 
 class ElasticFile
 {
@@ -84,7 +87,6 @@ public:
 private:
 	void ErrorExit(LPTSTR lpszFunction);
 	void updateDataFile();
-	unsigned int findCursorPositionInVectorBuffer( __int64 position )const;
 	void checkIfCommit();
 	DWORD writeToFile( HANDLE hFile, PBYTE pBufer, __int64 offset, DWORD dwLength ); 
 
@@ -100,6 +102,7 @@ private:
 	std::vector<chunk> m_Changes;
 	std::wstring m_FileName;
 
+	std::shared_ptr<MemoFile> m_spMemoFile;
 	HANDLE m_fileHandle;
 };
 

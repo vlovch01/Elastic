@@ -15,19 +15,23 @@ public:
 		ustring ustrbuffer;
 	};
 public:
-	MemoFile( __int64 startPos, ULONG size);
+	MemoFile( __int64 startPos, __int64 size );
 	~MemoFile(void);
 
-	ULONG read   ( __int64 startPos, PBYTE buffer, ULONG size );
-	ULONG insert  ( __int64 startPos, PBYTE buffer, ULONG size, bool overwrite );
-	bool truncate( __int64 startPos, ULONG size );
+	__int64 read    ( __int64 startPos, PBYTE buffer, __int64 size );
+	__int64 insert  ( __int64 startPos, PBYTE buffer, __int64 size, bool overwrite );
+	bool truncate   ( __int64 startPos, __int64 size );
+	void inscrease  ( __int64  size );
+
+	const std::list<slice>& getChanges()const { return m_VecChanges; }
+	void swapContainer( __int64 startPos, __int64 size );
 private:
 	MemoFile( const MemoFile& );
 	MemoFile& operator=( const MemoFile& );
 	inline std::list<slice>::iterator findPositionInVector( __int64 startPos );
 
-	ULONG insertOverWrite( __int64 startPos, PBYTE buffer, ULONG size );
-	ULONG insertNoOverWrite( __int64 startPost, PBYTE buffer, ULONG size );
+	__int64 insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size );
+	__int64 insertNoOverWrite( __int64 startPost, PBYTE buffer, __int64 size );
 
 	std::list<slice> m_VecChanges;
 	__int64 m_CommitSize;

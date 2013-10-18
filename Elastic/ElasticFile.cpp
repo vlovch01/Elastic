@@ -2,6 +2,7 @@
 #include <strsafe.h>
 #include <algorithm>
 #include <iostream>
+#include "MemoFile.h"
 
 ElasticFile::ElasticFile(void) : m_filePos(0), m_fileSize(0), m_BufferCommitSize( 0 ), m_dwSystemGranularity( 0 )
 {
@@ -73,18 +74,27 @@ HANDLE ElasticFile::FileOpen( std::wstring& FileName, OpenMode Mode )
 	}
 
 	m_fileHandle = hFile;
-	chunk start;
-	start.offset = 0;
-	start.lenght = 0;
-	start._chunkStatus = NotChanged;
+	//chunk start;
+	//start.offset = 0;
+	//start.lenght = 0;
+	//start._chunkStatus = NotChanged;
+
 	LARGE_INTEGER largeInt;
 	if( ::GetFileSizeEx( hFile, &largeInt ) )
 	{
-		start.lenght = largeInt.QuadPart;
+		if( m_spMemoFile )
+		{
+			//swap container
+			m_spMemoFile->swapContainer( 0, largeInt.QuadPart );
+		}
+		else
+		{
+			m_spMemoFile.reset( new MemoFile( 0, largeInt.QuadPart ) );
+		}
 		m_fileSize   = largeInt.QuadPart;
 	}
 	
-	m_Changes.push_back( start );
+	//m_Changes.push_back( start );
 	m_filePos = 0;
 	m_BufferCommitSize = 0;
 
@@ -117,10 +127,13 @@ BOOL ElasticFile::FileSetCursor( HANDLE file, ULONG Offset, CursorMoveMode Mode 
 		if( m_filePos > m_fileSize )
 		{
 			//If the new cursor position is beyond the data which this file contains, the file must be extended up to the required size.
-			m_Changes[ m_Changes.size() - 1].lenght += m_filePos - m_fileSize;
+	/*		m_Changes[ m_Changes.size() - 1].lenght += m_filePos - m_fileSize;
 			ustring str( m_filePos - m_fileSize, ' ' );
 			m_Changes[ m_Changes.size() - 1].usbuffer.append( str );
+			m_BufferCommitSize += m_filePos - m_fileSize;*/
+			m_spMemoFile->inscrease( m_filePos - m_fileSize );
 			m_BufferCommitSize += m_filePos - m_fileSize;
+			m_fileSize         += m_filePos - m_fileSize;
 
 			if( ::SetEndOfFile( file ) )
 			{
@@ -161,7 +174,7 @@ ULONG ElasticFile::FileRead( HANDLE file, PBYTE buffer, ULONG size )
 	checkIfCommit();
 	//Find where in file vector of chuncks is placed our currsor 
 	//then find buffer from map
-	unsigned int index    = findCursorPositionInVectorBuffer( m_filePos );
+	unsigned int index    = 0;
 	ULONG bufferSize      = 0;
 	__int64 startPosition = m_filePos;
 	__int64 endPositon    = m_filePos + size;
@@ -224,198 +237,19 @@ ULONG ElasticFile::FileRead( HANDLE file, PBYTE buffer, ULONG size )
 ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwrite )
 {
 	checkIfCommit();
+	__int64 writen = m_spMemoFile->insert( m_filePos, buffer, size, overwrite );
+	m_BufferCommitSize += writen;
+	m_fileSize         += writen;
 
-	unsigned int index    = findCursorPositionInVectorBuffer( m_filePos );
-	__int64 startPosition = m_filePos;
-	__int64 endPosition   = m_filePos + size;
-	ULONG ulwritten       = 0;
-	ustring strToAdd;
-
-	if( overwrite )
-	{
-		//then  we overwrite all buffer's between index and endPosition
-		while( startPosition < endPosition && index <= m_Changes.size() - 1 )
-		{
-			if( m_Changes[index].lenght > 0 )
-			{
-				if( !m_Changes[index].usbuffer.empty() )
-				{
-					//because buffer is not empty we can do inplace changes(overwrite privious changes)
-					strToAdd.assign( m_Changes[index].usbuffer.c_str(), startPosition - m_Changes[index].offset );//form the beginning of previos buff copy 
-					__int64 numElToCopy = std::min( m_Changes[index].lenght - ( startPosition - m_Changes[index].offset ), endPosition - startPosition );
-					
-					strToAdd.append( buffer + ulwritten, numElToCopy );
-					if( size - ulwritten < m_Changes[index].lenght )
-					{
-						//add the rest of the string
-						strToAdd.append( m_Changes[index].usbuffer.c_str() + size - ulwritten, m_Changes[index].lenght - ( size - ulwritten ));
-					}
-					m_Changes[index].usbuffer.swap( strToAdd );
-					ulwritten += numElToCopy;
-					startPosition += numElToCopy;
-					strToAdd.clear();
-				}
-				else
-				{
-					//this chunk was't updated yet so we add a new buffer
-					chunk Item;
-					Item._chunkStatus = Modified;
-					Item.offset       = startPosition;
-					Item.lenght       = std::min( m_Changes[index].offset + m_Changes[index].lenght - startPosition, endPosition - startPosition );
-
-					strToAdd.assign( buffer + ulwritten, Item.lenght );
-					ulwritten     += Item.lenght;
-					startPosition += Item.lenght;
-
-					std::vector<chunk>::iterator it = m_Changes.begin();
-					if( index + 1 < m_Changes.size() )
-					{
-						std::advance( it, index + 1 );
-						m_Changes.insert( it, Item );
-					}
-					else
-					{
-						m_Changes.push_back( Item );
-					}
-
-					if( endPosition - startPosition < m_Changes[index].lenght )
-					{
-					//then we should add another Item
-						chunk rest;
-						rest._chunkStatus  = Modified;
-						rest.offset        = startPosition;
-						rest.lenght        = m_Changes[index].lenght - endPosition - m_Changes[index].offset;
-						//buffer we don't change
-						if( index + 2 < m_Changes.size() )
-						{
-							it = m_Changes.begin();
-							std::advance( it, index + 2 );
-							m_Changes.insert( it, rest );
-						}
-						else
-						{
-							m_Changes.push_back( Item );
-						}
-						++index;
-					}
-					m_Changes[index].lenght = startPosition - m_Changes[index].offset;//change lenght to the current Item in vector buffer
-					++index;//we just added one more item and we want to start from next
-				}
-			}
-			++index;
-		}
-	}
-	else
-	{
-		//create new record in vector buf with lenght = size and update next neighbor offset
-		ulwritten = size;
-		chunk Item;
-		Item.lenght  = size;
-		Item.offset  = startPosition;
-		Item.usbuffer.assign( buffer );
-		std::vector<chunk>::iterator it = m_Changes.begin();
-		if( index + 1 < m_Changes.size() )
-		{
-			std::advance( it, index + 1 );
-			it = m_Changes.insert( it, Item );
-			++it;
-			while( it != m_Changes.end() )
-			{
-				(*it).offset += Item.lenght;
-				++it;
-			}
-		}
-		else
-		{
-			m_Changes.push_back( Item );
-		}
-		__int64 numElem = startPosition - m_Changes[index].offset;
-		if( m_filePos + size != m_Changes[index].offset )
-		{
-			chunk rest;
-			//if is not empty then we should split the index buf in two Items
-			if( !m_Changes[index].usbuffer.empty() )
-			{
-				ustring strRest = m_Changes[index].usbuffer.substr( numElem, m_Changes[index].lenght );
-				m_Changes[index].usbuffer.erase( numElem, m_Changes[index].lenght );
-				rest.usbuffer.assign( strRest );
-			}
-			
-			rest.lenght = m_Changes[index].lenght  - numElem;
-			rest.offset = Item.lenght + Item.offset;
-
-			if( index + 2 < m_Changes.size() )
-			{
-				it = m_Changes.begin();
-				std::advance( it, index + 2 );
-				it = m_Changes.insert( it, rest );
-			}
-			else
-			{
-				m_Changes.push_back( rest );
-			}
-			m_Changes[index].lenght = numElem;
-		}
-		m_BufferCommitSize += ulwritten;
-		m_fileSize         += ulwritten;
-	}
-
-	if( m_Changes.size() > 1 )
-	{
-		m_Changes.erase( std::remove_if( m_Changes.begin(), m_Changes.end(), 
-			[]( const chunk& obj )
-		{
-			return obj.lenght == 0;
-		}), m_Changes.end() );
-	}
-	
-	return ulwritten;
+	return writen;
 }
 
 bool ElasticFile::FileTruncate( HANDLE file, ULONG cutSize )
 {
 	checkIfCommit();
-	//TODO if m_Changes.size() == 1 then do truncation in place
-	unsigned int index    = findCursorPositionInVectorBuffer( m_filePos );
-	unsigned int tempIndex = index;
-	__int64 startPosition = m_filePos;
-	__int64 endPosition   = m_filePos + cutSize;
+		
+	return m_spMemoFile->truncate( m_filePos, cutSize );
 	
-	if( endPosition > m_fileSize )
-	{
-		endPosition = m_fileSize;
-	}
-
-	while( startPosition <= endPosition )
-	{
-		m_Changes[index].lenght = startPosition - m_Changes[index].offset;
-	
-		if( m_Changes[index].lenght == 0 )
-		{
-			m_Changes[index]._chunkStatus = Deleted;//mark to delete
-		}
-		else
-		{
-			if( !m_Changes[index].usbuffer.empty() )
-			{
-				m_Changes[index].usbuffer.erase( 0, m_Changes[index].lenght );
-				m_BufferCommitSize -= m_Changes[index].lenght;
-			}
-		}
-		++index;
-		startPosition = m_Changes[index].offset;
-	}
-	
-	//remove vector items with length == 0
-	if( m_Changes.size() > 1 )
-	{
-		m_Changes.erase( std::remove_if( m_Changes.begin(), m_Changes.end(), 
-			[]( const chunk& obj )
-		{
-			return obj.lenght == 0;
-		}), m_Changes.end() );
-	}
-	return TRUE;
 }
 
 BOOL ElasticFile::FileClose( HANDLE file )
@@ -427,20 +261,6 @@ BOOL ElasticFile::FileClose( HANDLE file )
 		value = ::CloseHandle( file );
 	}
 	return value;
-}
-
-unsigned int ElasticFile::findCursorPositionInVectorBuffer( __int64 position )const
-{
-	unsigned int index = 0;
-	for( ; index < m_Changes.size(); ++index)
-	{
-		if( m_Changes[index].offset <= position && m_Changes[index].offset + m_Changes[index].lenght >= position )
-		{
-			return index;
-		}
-	}
-
-	return 0;
 }
 
 void ElasticFile::checkIfCommit()
@@ -479,42 +299,57 @@ void ElasticFile::updateDataFile()
 		}
 	}
 
-	std::vector<chunk>::iterator it = m_Changes.begin();
-	HANDLE hMemMap = ::CreateFileMappingW( m_fileHandle, 0, PAGE_READONLY, 0, 0, 0 );
+	std::list<MemoFile::slice> listChanges = m_spMemoFile->getChanges();
+	std::list<MemoFile::slice>::iterator it = listChanges.begin();
+	//std::vector<chunk>::iterator it = m_Changes.begin();
+//	//HANDLE hMemMap = ::CreateFileMappingW( m_fileHandle, 0, PAGE_READONLY, 0, 0, 0 );
+	DWORD dwRead;
+	LARGE_INTEGER li = {0};
 
-	for( ; it != m_Changes.end(); ++it )
+	for( ; it != listChanges.end(); ++it )
 	{
-		if( (*it).lenght > 0 )
+		if( (*it).length > 0 )
 		{
-			if( (*it).usbuffer.empty() )
+			if( (*it).ustrbuffer.empty() )
 			{
 				//read from original file
-				DWORD dwview = (*it).lenght;
-				__int64 j = (*it).offset;
+				//DWORD dwview = (*it).length;
+				//__int64 j = (*it).offset;
 				{
-					DWORD high = static_cast<DWORD>((j >> 32) & 0xFFFFFFFFul);
-					DWORD low  = static_cast<DWORD>( j        & 0xFFFFFFFFul);
-					if( j + dwview > m_fileSize )
-					{
-						dwview = static_cast<DWORD>(m_fileSize - j);//for last step when buffer is smaller then page size
-					}
-					BYTE *pbuf = (BYTE*)::MapViewOfFile( hMemMap, FILE_MAP_READ, high, low, 0 );
+					//DWORD high = static_cast<DWORD>((j >> 32) & 0xFFFFFFFFul);
+					//DWORD low  = static_cast<DWORD>( j        & 0xFFFFFFFFul);
+					//if( j + dwview > m_fileSize )
+					//{
+					//	dwview = static_cast<DWORD>(m_fileSize - j);//for last step when buffer is smaller then page size
+					//}
+					//BYTE *pbuf = (BYTE*)::MapViewOfFile( hMemMap, FILE_MAP_READ, high, low, 0 );
 					
-					tempFileCursor += writeToFile( hTempFile, pbuf, tempFileCursor, (*it).lenght );
-
-					::UnmapViewOfFile( pbuf );
+					BYTE *pbuf = new BYTE[ (*it).length + 1 ]; 
+					li.QuadPart = (*it).offset;
+					
+					::SetFilePointerEx( m_fileHandle, li, 0, FILE_BEGIN );
+					if ( ::ReadFile( m_fileHandle, pbuf, (*it).length, &dwRead, NULL ) )
+					{
+						tempFileCursor += writeToFile( hTempFile, pbuf, tempFileCursor, (*it).length );
+					}
+					else
+					{
+						ErrorExit(L"ReadFile");
+					}
+					delete []pbuf;
+					//::UnmapViewOfFile( pbuf );
 				}
 			}
 			else
 			{
 				//read from buffer
-				tempFileCursor += writeToFile( hTempFile, static_cast<PBYTE>(const_cast<unsigned char*>((*it).usbuffer.c_str())), tempFileCursor, (*it).lenght );
+				tempFileCursor += writeToFile( hTempFile, static_cast<PBYTE>(const_cast<unsigned char*>((*it).ustrbuffer.c_str())), tempFileCursor, (*it).length );
 			}
 		}
 
 	}
 	
-	::CloseHandle( hMemMap );
+//	::CloseHandle( hMemMap );
 	::CloseHandle( hTempFile );
 	
 	TCHAR fileFullPath[MAX_PATH] = {'\0'};
