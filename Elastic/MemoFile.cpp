@@ -77,7 +77,7 @@ ULONG MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, ULONG size )
 		ustring restBuff;
 		if( !(*itEnd).ustrbuffer.empty() )
 		{
-			( (*itEnd).ustrbuffer.substr( startPos + size - (*itEnd).offset, (*itEnd).offset + (*itEnd).length - startPos - size) );
+			restBuff.append( ( (*itEnd).ustrbuffer.substr( startPos + size - (*itEnd).offset, (*itEnd).offset + (*itEnd).length - startPos - size) ) );
 		}
 
 			if( (*it).offset == startPos )
@@ -127,6 +127,25 @@ ULONG MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, ULONG size )
 ULONG MemoFile::insertNoOverWrite( __int64 startPos, PBYTE buffer, ULONG size )
 {
 	std::list<slice>::iterator it = findPositionInVector( startPos );
+	if( it == m_VecChanges.end() )
+	{
+		return 0;
+	}
+
+	ustring strTemp( buffer );
+	slice Item;
+	Item.offset = startPos;
+	Item.length = size;
+
+	Item.ustrbuffer.swap( std::move( strTemp ) );
+	ustring restBuff( (*it).ustrbuffer.substr( startPos - (*it).offset + 1, (*it).length ) );
+	if( (*it).offset < startPos )
+	{
+		(*it).length = startPos - (*it).offset;
+		(*it).ustrbuffer.erase( startPos - (*it).offset + 1, (*it).length );
+
+		slice EndItem;
+	}
 
 	return 0;
 }
