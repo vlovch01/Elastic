@@ -10,6 +10,7 @@ class ElasticFile
 {
 public:
 	typedef std::basic_string <unsigned char> ustring;
+
 	enum chunkStatus
 	{
 		NotChanged,
@@ -24,6 +25,7 @@ public:
 		chunkStatus _chunkStatus;
 		ustring usbuffer;
 	};
+
 	enum EnumFileMode
 	{
 		Append       = 1,
@@ -97,10 +99,10 @@ private:
 	__int64 m_filePos;
 	__int64 m_fileSize;
 	__int64 m_BufferCommitSize;
-	OpenMode m_mode;
 	DWORD m_dwSystemGranularity;
-	std::vector<chunk> m_Changes;
 	std::wstring m_FileName;
+	__int64 m_reserved;
+	std::vector<chunk> m_Changes;
 
 	std::shared_ptr<MemoFile> m_spMemoFile;
 	HANDLE m_fileHandle;

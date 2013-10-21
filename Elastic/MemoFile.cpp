@@ -1,13 +1,17 @@
 #include "MemoFile.h"
 #include <algorithm>
 #include <functional>
+#include <assert.h>
 
 MemoFile::MemoFile( __int64 startPos, __int64 size )
 {
-	slice first;
-	first.length = size;
-	first.offset = startPos;
-	m_VecChanges.push_back( std::move( first ) );
+	if( size != 0 )
+	{
+		slice first;
+		first.length = size;
+		first.offset = startPos;
+		m_VecChanges.push_back( std::move( first ) );
+	}
 }
 
 
@@ -113,31 +117,49 @@ bool MemoFile::truncate( __int64 startPos, __int64 size )
 
 inline std::list<MemoFile::slice>::iterator MemoFile::findPositionInVector( __int64 startPos )
 {
+	std::list<MemoFile::slice>::iterator it = m_VecChanges.end();
+	if( !m_VecChanges.empty() )
+	{
+		--it;
+		if( (*it).length +(*it).offset < startPos )
+		{
+			return m_VecChanges.end();
+		}
+	}
+
 	std::function<bool( const slice&, __int64)> cmp = []( const slice& obj, __int64 val )
 	{
-		return !(obj.offset <= val && obj.offset + obj.length >= val); 
+		return obj.offset <= val; 
 	};
 
-	std::list<MemoFile::slice>::iterator it =  std::lower_bound( m_VecChanges.begin(), m_VecChanges.end(), startPos, cmp );
+	it =  std::lower_bound( m_VecChanges.begin(), m_VecChanges.end(), startPos, cmp );
 
 	if( it != m_VecChanges.end() && cmp( *it, startPos ) )
 	{
 		return it;
 	}
 
-	if( m_VecChanges.size() == 1 && it == m_VecChanges.end() )
-	{
-		return --it;
-	}
-	//if( m_VecChanges.size() > 1 && it != m_VecChanges.end() )
+	//if( it != m_VecChanges.end() || ( m_VecChanges.size() == 1 && it == m_VecChanges.end() ) )
 	//{
-	//	++it;
+	//	return --it;
 	//}
-	return it;
+	
+	return --it;
 }
 
 __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size )
 {
+	if( m_VecChanges.empty() )
+	{
+		assert( size > 0 );
+		ustring strTemp( buffer );
+		slice Item;
+		Item.offset = startPos;
+		Item.length = size;
+		Item.ustrbuffer.swap( strTemp );
+		m_VecChanges.push_back( Item );
+		return size;
+	}
 	std::list<slice>::iterator it    = findPositionInVector( startPos );
 
 	if( it == m_VecChanges.end() )
@@ -145,108 +167,127 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 		return 0;
 	}
 
-		std::list<slice>::iterator itEnd;
-		if( ((*it).offset + (*it).length >= startPos + size && (*it).offset <= startPos ) || (  m_VecChanges.size() == 1 ) )
+	std::list<slice>::iterator itEnd;
+	itEnd = findPositionInVector( startPos + size );
+	if( itEnd == m_VecChanges.end() )
+	{
+		--itEnd;
+	}
+	//update
+	if( (*it).offset < (*itEnd).offset )
+	{
+		if( (*it).offset == startPos )
 		{
-			itEnd = it;
+			(*it).length = size;
+			(*it).ustrbuffer.assign( buffer );
 		}
 		else
 		{
-			itEnd = findPositionInVector( startPos + size );
-		}
-	
-		if( itEnd == m_VecChanges.end() )
-		{
-			--itEnd;
-			size = (*itEnd).offset + (*itEnd).length - (*it).offset;
-		}
-		ustring strBuf( buffer );
-		ustring restBuff;
-		if( !(*itEnd).ustrbuffer.empty() )
-		{
-			restBuff.append( ( (*itEnd).ustrbuffer.substr( startPos + size - (*itEnd).offset, (*itEnd).offset + (*itEnd).length - startPos - size) ) );
-		}
-
-			if( (*it).offset == startPos )
-			{
-				(*it).length = size - 1;		
-				(*it).ustrbuffer.swap( std::move(strBuf) );
-				//case 3 and 4
-				++it; ++itEnd;
-			}
-			else
+			if( !(*it).ustrbuffer.empty() )
 			{
 				(*it).ustrbuffer.erase( startPos - (*it).offset, (*it).length );
-				(*it).length = startPos - (*it).offset;
-
-				slice Item;
-				Item.offset = startPos;
-				Item.length = size - 1;
-				Item.ustrbuffer.swap( std::move( strBuf ) );
-				it = m_VecChanges.insert( ++it, Item );
 			}
-
-			/*m_VecChanges.erase( std::remove( it, itEnd, [&startPos, &size]( const slice &obj )
-			{
-				return obj.offset > startPos && obj.offset + obj.length <= startPos + size; 
-			}), m_VecChanges.end() );*/
-
-			m_VecChanges.erase( it, itEnd );
-
-			if( it != itEnd )
-			{ 
-				(*itEnd).length = (*itEnd).offset + (*itEnd).length - ( startPos + size );
-				(*itEnd).offset = startPos + size + 1;
-				(*itEnd).ustrbuffer.swap( std::move( restBuff ) ); 
-			}
-			else
-			{
-				//we need to insert new Item 
-				if( itEnd != m_VecChanges.end() )
+			(*it).length = startPos - (*it).offset;
+			slice Item;
+			Item.ustrbuffer.assign( buffer );
+			Item.length = size;
+			Item.offset = startPos;
+			it = m_VecChanges.insert( ++it, Item );
+		}
+		++it;
+		//for itEnd
+		if( startPos + size <= (*itEnd).offset + (*itEnd).length )
+		{
+				if( !(*itEnd).ustrbuffer.empty() )
 				{
-					slice Item;
-					Item.length = (*itEnd).offset + (*itEnd).length - ( startPos + size );
-					Item.offset = startPos + size + 1;
-					Item.ustrbuffer.swap( std::move( restBuff ) );
-					m_VecChanges.insert( ++it, Item );
+					(*itEnd).ustrbuffer.erase( 0, startPos + size - (*itEnd).offset );
 				}
+				(*itEnd).length = (*itEnd).offset + (*it).length - startPos - size;;
+				(*itEnd).offset = startPos + size;
+				m_VecChanges.erase( it, itEnd );
+		}
+	}
+	else//case (*it).offset == (*itEnd).offset
+	{
+		__int64 i64size = (*itEnd).offset + (*itEnd).length - startPos - size;
+		ustring restBuff;
+		if( startPos == (*it).offset ) 
+		{
+			if( !(*it).ustrbuffer.empty() && startPos + size - (*it).offset <= (*it).length )
+			{
+				restBuff.assign( (*it).ustrbuffer.substr( startPos + size - (*it).offset,  i64size ) );
 			}
+			(*it).length = size;
+			(*it).ustrbuffer.assign( buffer );
+		}
+		else
+		{
+			if( !(*it).ustrbuffer.empty() && startPos + size - (*it).offset <= (*it).length )
+			{
+				restBuff.assign( (*it).ustrbuffer.substr( startPos + size - (*it).offset,  i64size ) );
+				(*it).ustrbuffer.erase( startPos - (*it).offset, (*it).length );
+			}
+			(*it).length = startPos - (*it).offset;
+			slice Item;
+			Item.ustrbuffer.assign( buffer );
+			Item.length = size;
+			Item.offset = startPos;
+			it = m_VecChanges.insert( ++it, Item );
+		}
+		//for itEnd
+		if( !restBuff.empty() )
+		{
+			slice Item;
+			Item.ustrbuffer.swap( std::move( restBuff ) );
+			Item.length = i64size;
+			Item.offset = startPos + size;
+			m_VecChanges.insert( ++it, Item );
+		}
+	}
 
 	return size;
 }
 __int64 MemoFile::insertNoOverWrite( __int64 startPos, PBYTE buffer, __int64 size )
 {
+	ustring strTemp( buffer );
+	slice Item;
+	Item.offset = startPos;
+	Item.length = size;
+
+	if( m_VecChanges.empty() )
+	{
+		assert( size > 0 );
+		Item.ustrbuffer.swap( strTemp );
+		m_VecChanges.push_back( Item );
+		return size;
+	}
 	std::list<slice>::iterator it = findPositionInVector( startPos );
 	if( it == m_VecChanges.end() )
 	{
 		return 0;
 	}
 
-	ustring strTemp( buffer );
-	slice Item;
-	Item.offset = startPos;
-	Item.length = size;
-
 	Item.ustrbuffer.swap( std::move( strTemp ) );
 	ustring restBuff;
+	__int64 i64size = (*it).length - ( startPos - (*it).offset );
 	if( !(*it).ustrbuffer.empty() )
 	{
-		restBuff.append( (*it).ustrbuffer.substr( startPos - (*it).offset, (*it).length - ( startPos - (*it).offset ) ) );//begin position to copy and number of chars to copy
+		restBuff.append( (*it).ustrbuffer.substr( startPos - (*it).offset, i64size ) );//begin position to copy and number of chars to copy
 	}
 
-	if( (*it).offset < startPos )
+	if( (*it).offset < startPos && (*it).offset + (*it).length > startPos )
 	{
 		(*it).length = startPos - (*it).offset;
 		if( !(*it).ustrbuffer.empty() )
 		{
-			(*it).ustrbuffer.erase( startPos - (*it).offset + 1, restBuff.length() - 1 );
+			(*it).ustrbuffer.erase( startPos - (*it).offset, restBuff.length() );
 		}
 
 		it = m_VecChanges.insert( ++it, Item );
 
 		slice EndItem;
-		EndItem.offset = startPos + size + 1;
-		EndItem.length = restBuff.length() - 1;
+		EndItem.offset = startPos + size;
+		EndItem.length = i64size;
 		EndItem.ustrbuffer.swap( std::move( restBuff ) );
 		it = m_VecChanges.insert( ++it, EndItem );
 	}
@@ -256,11 +297,15 @@ __int64 MemoFile::insertNoOverWrite( __int64 startPos, PBYTE buffer, __int64 siz
 		{
 			it = m_VecChanges.insert( it, Item );
 		}
+		else
+		{
+			m_VecChanges.push_back( Item );
+		}
 	}
 	++it;
 	std::for_each( it, m_VecChanges.end(), [&size]( slice& obj )
 	{
-		obj.offset = obj.offset + size + 1;
+		obj.offset = obj.offset + size;
 	});
 
 	return size;
@@ -274,7 +319,7 @@ void MemoFile::inscrease( __int64  size )
 		std::list<slice>::iterator it = m_VecChanges.end();
 		--it;
 		Item.length = size;
-		Item.offset = (*it).offset + (*it).length + 1;
+		Item.offset = (*it).offset + (*it).length;
 		ustring strNew( size, ' ' );
 		Item.ustrbuffer.swap( std::move( strNew ) );
 		m_VecChanges.push_back( Item );
@@ -283,6 +328,8 @@ void MemoFile::inscrease( __int64  size )
 	{
 		Item.offset = 0;
 		Item.length = size;
+		ustring strNew( size, ' ' );
+		Item.ustrbuffer.swap( std::move( strNew ) );
 		m_VecChanges.push_back( Item );
 	}
 }

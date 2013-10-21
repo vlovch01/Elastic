@@ -4,7 +4,7 @@
 #include <iostream>
 #include "MemoFile.h"
 
-ElasticFile::ElasticFile(void) : m_filePos(0), m_fileSize(0), m_BufferCommitSize( 0 ), m_dwSystemGranularity( 0 )
+ElasticFile::ElasticFile(void) : m_filePos(0), m_fileSize(0), m_BufferCommitSize( 0 ), m_dwSystemGranularity( 0 ), m_reserved( 16 )
 {
 	_SYSTEM_INFO sysInfo ={0};
 	::GetSystemInfo( &sysInfo );
@@ -24,12 +24,6 @@ HANDLE ElasticFile::FileOpen( std::wstring& FileName, OpenMode Mode )
 	m_FileName.assign( FileName );
 	DWORD dwOpen = 0;
 	DWORD dwMode = 0;
-	m_mode = Mode;
-
-	if( !m_Changes.empty() )
-	{
-		std::vector<chunk>().swap( m_Changes );
-	}
 
 	while( Mode )
 	{
@@ -238,8 +232,16 @@ ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwr
 {
 	checkIfCommit();
 	__int64 writen = m_spMemoFile->insert( m_filePos, buffer, size, overwrite );
-	m_BufferCommitSize += writen;
-	m_fileSize         += writen;
+	if( !overwrite )
+	{
+		m_BufferCommitSize += writen;
+		m_fileSize         += writen;
+	}
+	else
+	{
+		m_BufferCommitSize = std::max( m_BufferCommitSize, writen );
+		m_fileSize         = std::max( m_BufferCommitSize, writen );
+	}
 
 	return writen;
 }
@@ -265,25 +267,32 @@ BOOL ElasticFile::FileClose( HANDLE file )
 
 void ElasticFile::checkIfCommit()
 {
-	if ( m_BufferCommitSize > 1 * 1024 * 1024 || m_Changes.size() > 9 )//no more then 300MB and 1000 elements in vector buffer
+	if ( m_BufferCommitSize > 100 * 1024 * 1024 || m_spMemoFile->getChanges().size() > m_reserved )//no more then 100MB and 65535 elements in vector buffer
 	{
 		updateDataFile();
+		if( m_reserved < 65535 )
+		{
+			m_reserved *= 2;
+		}
 		FileOpen( m_FileName, Open );//reopen file after update
 	}
 }
 void ElasticFile::updateDataFile()
 {
-	if( m_Changes.size() <= 1 && m_Changes[0].lenght == 0 )
+	std::list<MemoFile::slice> listChanges = m_spMemoFile->getChanges();
+	std::list<MemoFile::slice>::iterator it = listChanges.begin();
+	std::list<MemoFile::slice>::iterator prevIt;
+
+	if( listChanges.empty() )
 	{
 		return;
 	}
 
 	HANDLE hTempFile;
-	const unsigned int lenPath = 261;
-	__int64 tempFileCursor = m_Changes[0].offset;
+	__int64 tempFileCursor = (*it).offset;
 
-	TCHAR tempFileName[lenPath] = {'\0'};
-	if( ::GetTempPath( lenPath, tempFileName ) )
+	TCHAR tempFileName[MAX_PATH + 1] = {'\0'};
+	if( ::GetTempPath( MAX_PATH, tempFileName ) )
 	{
 		if( ::GetTempFileName( tempFileName, TEXT("~TMP"), 0, tempFileName ) )
 		{
@@ -299,8 +308,7 @@ void ElasticFile::updateDataFile()
 		}
 	}
 
-	std::list<MemoFile::slice> listChanges = m_spMemoFile->getChanges();
-	std::list<MemoFile::slice>::iterator it = listChanges.begin();
+	__int64 fileOffset = 0;
 	//std::vector<chunk>::iterator it = m_Changes.begin();
 //	//HANDLE hMemMap = ::CreateFileMappingW( m_fileHandle, 0, PAGE_READONLY, 0, 0, 0 );
 	DWORD dwRead;
@@ -323,9 +331,17 @@ void ElasticFile::updateDataFile()
 					//	dwview = static_cast<DWORD>(m_fileSize - j);//for last step when buffer is smaller then page size
 					//}
 					//BYTE *pbuf = (BYTE*)::MapViewOfFile( hMemMap, FILE_MAP_READ, high, low, 0 );
-					
+					if( it != listChanges.begin() )
+					{
+						prevIt = std::prev( it, 1 );
+						if( !(*prevIt).ustrbuffer.empty() )
+						{
+							fileOffset += (*prevIt).length;
+						}
+					}
+
 					BYTE *pbuf = new BYTE[ (*it).length + 1 ]; 
-					li.QuadPart = (*it).offset;
+					li.QuadPart = (*it).offset - fileOffset;
 					
 					::SetFilePointerEx( m_fileHandle, li, 0, FILE_BEGIN );
 					if ( ::ReadFile( m_fileHandle, pbuf, (*it).length, &dwRead, NULL ) )
