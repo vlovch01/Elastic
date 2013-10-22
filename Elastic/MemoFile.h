@@ -13,6 +13,8 @@ public:
 		__int64 offset;
 		__int64 length;
 		ustring ustrbuffer;
+		unsigned int pageID;
+		PBYTE buffer;
 	};
 public:
 	MemoFile( __int64 startPos, __int64 size );

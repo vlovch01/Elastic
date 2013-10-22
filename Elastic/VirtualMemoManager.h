@@ -10,13 +10,15 @@ public:
 		PBYTE m_pBegin;
 		PBYTE m_pCurrentPos;
 	};
-	VirtualMemoManager(void);
-	~VirtualMemoManager(void);
-	 PBYTE getPointerWithLength( __int64 len, unsigned int& pageID );
-	 	VirtualMemoManager( const VirtualMemoManager& ) = delete;
-	VirtualMemoManager& operator=( const VirtualMemoManager&) = delete;
-private:
+	static std::shared_ptr<VirtualMemoManager>& getInstance( );
 
+	~VirtualMemoManager(void);
+	 void getPointerWithLength( __int64 len, unsigned int& pageID, PBYTE start );
+	 inline __int64 getPageSize()const{ return m_pageSize; }
+private:
+	VirtualMemoManager( );
+	VirtualMemoManager( const VirtualMemoManager& );
+	VirtualMemoManager& operator=( const VirtualMemoManager&);
 
 private:
 	__int64 m_pageSize;

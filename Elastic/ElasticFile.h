@@ -87,7 +87,6 @@ public:
 	///Returns True on success, False otherwise.
 	BOOL FileClose( HANDLE file );
 private:
-	void ErrorExit(LPTSTR lpszFunction);
 	void updateDataFile();
 	void checkIfCommit();
 	DWORD writeToFile( HANDLE hFile, PBYTE pBufer, __int64 offset, DWORD dwLength ); 

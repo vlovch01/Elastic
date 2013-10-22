@@ -1,8 +1,10 @@
 #include "ElasticFile.h"
-#include <strsafe.h>
+#include "ErrorLoger.h"
+#include "MemoFile.h"
+#include "VirtualMemoManager.h"
+
 #include <algorithm>
 #include <iostream>
-#include "MemoFile.h"
 
 ElasticFile::ElasticFile(void) : m_filePos(0), m_fileSize(0), m_BufferCommitSize( 0 ), m_dwSystemGranularity( 0 ), m_reserved( 16 )
 {
@@ -10,6 +12,7 @@ ElasticFile::ElasticFile(void) : m_filePos(0), m_fileSize(0), m_BufferCommitSize
 	::GetSystemInfo( &sysInfo );
 	m_dwSystemGranularity = sysInfo.dwAllocationGranularity * 2;
 
+	
 }
 
 
@@ -135,14 +138,14 @@ BOOL ElasticFile::FileSetCursor( HANDLE file, ULONG Offset, CursorMoveMode Mode 
 			}
 			else
 			{
-				ErrorExit(L"SetEndOfFile");
+				ErrorLoger::ErrorMessage(L"SetEndOfFile");
 				return FALSE;
 			}
 		}
 	}
 	else
 	{
-		ErrorExit(L"SetFilePointerEx");
+		ErrorLoger::ErrorMessage(L"SetFilePointerEx");
 		return FALSE;
 	}
 	return FALSE;
@@ -350,7 +353,7 @@ void ElasticFile::updateDataFile()
 					}
 					else
 					{
-						ErrorExit(L"ReadFile");
+						ErrorLoger::ErrorMessage(L"ReadFile");
 					}
 					delete []pbuf;
 					//::UnmapViewOfFile( pbuf );
@@ -387,36 +390,14 @@ DWORD ElasticFile::writeToFile( HANDLE hFile, PBYTE pBufer, __int64 offset, DWOR
 		}
 		else
 		{
-			ErrorExit(L"WriteFile");
+			ErrorLoger::ErrorMessage(L"WriteFile");
 			return 0;
 		}
 	}
 	else
 	{
-		ErrorExit(L"SetFilePointerEx");
+		ErrorLoger::ErrorMessage(L"SetFilePointerEx");
 		return 0;
 	}
 	return 0;
-}
-
-void ElasticFile::ErrorExit(LPTSTR lpszFunction) 
-{ 
-    // Retrieve the system error message for the last-error code
-
-    LPVOID lpMsgBuf;
-    LPVOID lpDisplayBuf;
-    DWORD dw = GetLastError(); 
-
-    FormatMessage( FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL,
-					dw, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) &lpMsgBuf, 0, NULL );
-
-    // Display the error message and exit the process
-
-    lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT, (lstrlen((LPCTSTR)lpMsgBuf) + lstrlen((LPCTSTR)lpszFunction) + 40) * sizeof(TCHAR)); 
-    StringCchPrintf((LPTSTR)lpDisplayBuf, LocalSize(lpDisplayBuf) / sizeof(TCHAR), TEXT("%s failed with error %d: %s"), lpszFunction, dw, lpMsgBuf); 
-	MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK); 
-
-    LocalFree(lpMsgBuf);
-    LocalFree(lpDisplayBuf);
- //   ExitProcess(dw); 
 }
