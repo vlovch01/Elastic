@@ -1,4 +1,5 @@
 #include "MemoFile.h"
+#include "VirtualMemoManager.h"
 #include <algorithm>
 #include <functional>
 #include <assert.h>
@@ -156,6 +157,12 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 		slice Item;
 		Item.offset = startPos;
 		Item.length = size;
+		PBYTE start = NULL;
+		unsigned int pageId = 0;
+		VirtualMemoManager::getInstance()->getPointerWithLength( size, pageId, start );
+		Item.pageID = pageId;
+		Item.buffer = start;
+
 		Item.ustrbuffer.swap( strTemp );
 		m_VecChanges.push_back( Item );
 		return size;
