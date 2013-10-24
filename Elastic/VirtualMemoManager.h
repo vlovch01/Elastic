@@ -10,6 +10,13 @@ public:
 		PBYTE m_pBegin;
 		PBYTE m_pCurrentPos;
 	};
+
+	struct Blanks
+	{
+		PBYTE m_pStart;
+		PBYTE m_pEnd;
+		unsigned int uiPageId;
+	};
 	static std::shared_ptr<VirtualMemoManager>& getInstance( );
 
 	~VirtualMemoManager(void);
@@ -23,5 +30,6 @@ private:
 private:
 	__int64 m_pageSize;
 	std::vector<PageInfo> m_VPages;
+	std::list<Blanks> m_listBlanks;
 };
 

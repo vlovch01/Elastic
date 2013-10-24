@@ -150,6 +150,10 @@ inline std::list<MemoFile::slice>::iterator MemoFile::findPositionInVector( __in
 
 __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size )
 {
+	std::shared_ptr<VirtualMemoManager> spMng = VirtualMemoManager::getInstance();
+	unsigned int uiPageId = 0;
+	PBYTE pByteBuffer = NULL;
+
 	if( m_VecChanges.empty() )
 	{
 		assert( size > 0 );
@@ -157,11 +161,10 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 		slice Item;
 		Item.offset = startPos;
 		Item.length = size;
-		PBYTE start = NULL;
-		unsigned int pageId = 0;
-		VirtualMemoManager::getInstance()->getPointerWithLength( size, pageId, start );
-		Item.pageID = pageId;
-		Item.buffer = start;
+		
+		spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
+		Item.pageID = uiPageId;
+		Item.buffer = pByteBuffer;
 
 		Item.ustrbuffer.swap( strTemp );
 		m_VecChanges.push_back( Item );
@@ -186,7 +189,11 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 		if( (*it).offset == startPos )
 		{
 			(*it).length = size;
-			(*it).ustrbuffer.assign( buffer );
+			//(*it).ustrbuffer.assign( buffer );
+			spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
+			(*it).pageID = uiPageId;
+			(*it).buffer = pByteBuffer;
+			memcpy( pByteBuffer, buffer, size );
 		}
 		else
 		{
