@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <list>
 #include <Windows.h>
 
 class VirtualMemoManager
@@ -21,6 +22,7 @@ public:
 
 	~VirtualMemoManager(void);
 	 void getPointerWithLength( __int64 len, unsigned int& pageID, PBYTE start );
+	 void deleteLength( unsigned int& pageId, PBYTE start, __int64& len );
 	 inline __int64 getPageSize()const{ return m_pageSize; }
 private:
 	VirtualMemoManager( );

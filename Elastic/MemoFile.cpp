@@ -197,7 +197,7 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 		}
 		else
 		{
-			if( !(*it).ustrbuffer.empty() )
+			if( (*it).buffer != NULL )
 			{
 				(*it).ustrbuffer.erase( startPos - (*it).offset, (*it).length );
 			}
@@ -206,6 +206,11 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 			Item.ustrbuffer.assign( buffer );
 			Item.length = size;
 			Item.offset = startPos;
+			spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
+			Item.pageID = uiPageId;
+			memcpy( pByteBuffer, buffer, size );
+			Item.buffer = pByteBuffer;
+
 			it = m_VecChanges.insert( ++it, Item );
 		}
 		++it;

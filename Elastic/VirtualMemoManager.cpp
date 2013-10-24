@@ -71,3 +71,17 @@ void VirtualMemoManager::getPointerWithLength(  __int64 len, unsigned int& pageI
 		}
 	}
 }
+
+void VirtualMemoManager::deleteLength( unsigned int& pageId, PBYTE start, __int64& len )
+{
+	PBYTE pageStart = m_VPages[pageId].m_pBegin;
+	PBYTE pageEnd   = m_pageSize + pageStart;
+	if( start + len <= pageEnd )
+	{
+		Blanks black;
+		black.m_pStart = start;
+		black.m_pEnd   = start + len;
+		black.uiPageId = pageId;
+		m_listBlanks.push_back( black );
+	}
+}

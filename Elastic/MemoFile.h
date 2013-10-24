@@ -10,6 +10,7 @@ public:
 	typedef std::basic_string <unsigned char> ustring;
 	struct slice
 	{
+		slice(): pageID(0), buffer(NULL){}
 		__int64 offset;
 		__int64 length;
 		ustring ustrbuffer;
