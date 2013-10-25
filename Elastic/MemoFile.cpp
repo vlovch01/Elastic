@@ -199,7 +199,8 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 		{
 			if( (*it).buffer != NULL )
 			{
-				(*it).ustrbuffer.erase( startPos - (*it).offset, (*it).length );
+				//(*it).ustrbuffer.erase( startPos - (*it).offset, (*it).length );
+				spMng->deleteLength( (*it).pageID, (*it).buffer + startPos - (*it).offset, (*it).length );
 			}
 			(*it).length = startPos - (*it).offset;
 			slice Item;
@@ -217,11 +218,13 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 		//for itEnd
 		if( startPos + size <= (*itEnd).offset + (*itEnd).length )
 		{
-				if( !(*itEnd).ustrbuffer.empty() )
+				if( (*itEnd).buffer != NULL )
 				{
-					(*itEnd).ustrbuffer.erase( 0, startPos + size - (*itEnd).offset );
+					//(*itEnd).ustrbuffer.erase( 0, startPos + size - (*itEnd).offset );
+					(*itEnd).buffer += startPos + size - (*itEnd).offset + 1;
+					spMng->deleteLength( (*it).pageID, (*it).buffer, startPos + size - (*itEnd).offset );
 				}
-				(*itEnd).length = (*itEnd).offset + (*it).length - startPos - size;;
+				(*itEnd).length = (*itEnd).offset + (*it).length - startPos - size;
 				(*itEnd).offset = startPos + size;
 				m_VecChanges.erase( it, itEnd );
 		}
@@ -230,31 +233,38 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 	{
 		__int64 i64size = (*itEnd).offset + (*itEnd).length - startPos - size;
 		ustring restBuff;
+		slice Item;
 		if( startPos == (*it).offset ) 
 		{
-			if( !(*it).ustrbuffer.empty() && startPos + size - (*it).offset <= (*it).length )
+			if( (*it).buffer != NULL && size <= (*it).length )//startPos + size - (*it).offset
 			{
-				restBuff.assign( (*it).ustrbuffer.substr( startPos + size - (*it).offset,  i64size ) );
+				//restBuff.assign( (*it).ustrbuffer.substr( startPos + size - (*it).offset,  i64size ) );
+				(*it).buffer += startPos - (*it).offset + 1;
+				spMng->deleteLength( (*it).pageID, (*it).buffer, startPos - (*it).offset );
+				
 			}
 			(*it).length = size;
 			(*it).ustrbuffer.assign( buffer );
 		}
 		else
 		{
-			if( !(*it).ustrbuffer.empty() && startPos + size - (*it).offset <= (*it).length )
+			if( (*it).buffer != NULL && startPos + size - (*it).offset <= (*it).length )
 			{
-				restBuff.assign( (*it).ustrbuffer.substr( startPos + size - (*it).offset,  i64size ) );
-				(*it).ustrbuffer.erase( startPos - (*it).offset, (*it).length );
+				//restBuff.assign( (*it).ustrbuffer.substr( startPos + size - (*it).offset,  i64size ) );
+				//(*it).ustrbuffer.erase( startPos - (*it).offset, (*it).length );
+				Item.buffer = (*it).buffer + startPos + size - (*it).offset + 1;
+				spMng->deleteLength( (*it).pageID, (*it).buffer + startPos - (*it).offset, size );
 			}
 			(*it).length = startPos - (*it).offset;
-			slice Item;
+			
 			Item.ustrbuffer.assign( buffer );
 			Item.length = size;
 			Item.offset = startPos;
+			Item.pageID = (*it).pageID;
 			it = m_VecChanges.insert( ++it, Item );
 		}
 		//for itEnd
-		if( !restBuff.empty() )
+		if( Item.buffer != NULL )
 		{
 			slice Item;
 			Item.ustrbuffer.swap( std::move( restBuff ) );

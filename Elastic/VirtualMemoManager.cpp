@@ -67,12 +67,34 @@ void VirtualMemoManager::getPointerWithLength(  __int64 len, unsigned int& pageI
 			pageID = index;
 			start  = m_VPages[index].m_pCurrentPos;
 			m_VPages[index].m_pCurrentPos += len + 1;
-			break;
+			return;
+		}
+	}
+
+	std::list<Blanks>::iterator it = m_listBlanks.begin();
+	for( ; it != m_listBlanks.end(); ++it )
+	{
+		if( (*it).m_pEnd - (*it).m_pStart == len )
+		{
+			pageID = (*it).uiPageId;
+			start  = (*it).m_pStart;
+			m_listBlanks.erase( it );
+			return;
+		}
+		else
+		{
+			if( (*it).m_pEnd - (*it).m_pStart < len )
+			{
+				pageID = (*it).uiPageId;
+				start  = (*it).m_pStart;
+				(*it).m_pStart += len + 1;
+				return;
+			}
 		}
 	}
 }
 
-void VirtualMemoManager::deleteLength( unsigned int& pageId, PBYTE start, __int64& len )
+void VirtualMemoManager::deleteLength( unsigned int& pageId, PBYTE start, __int64 len )
 {
 	PBYTE pageStart = m_VPages[pageId].m_pBegin;
 	PBYTE pageEnd   = m_pageSize + pageStart;
