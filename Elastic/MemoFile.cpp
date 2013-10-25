@@ -186,10 +186,24 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 	//update
 	if( (*it).offset < (*itEnd).offset )
 	{
+		std::list<slice>::iterator itRemove = it;
+		itRemove++;//clean memory between it and itEnd
+		for( ; itRemove != itEnd; ++itRemove )
+		{
+			if( (*itRemove).buffer )
+			{
+				spMng->deleteLength( (*itRemove).pageID, (*itRemove).buffer, (*itRemove).length );
+			}
+		}
+
 		if( (*it).offset == startPos )
 		{
 			(*it).length = size;
 			//(*it).ustrbuffer.assign( buffer );
+			if( (*it).buffer )
+			{
+				spMng->deleteLength( (*it).pageID, (*it).buffer, (*it).length );
+			}
 			spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
 			(*it).pageID = uiPageId;
 			(*it).buffer = pByteBuffer;
@@ -239,38 +253,70 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 			if( (*it).buffer != NULL && size <= (*it).length )//startPos + size - (*it).offset
 			{
 				//restBuff.assign( (*it).ustrbuffer.substr( startPos + size - (*it).offset,  i64size ) );
-				(*it).buffer += startPos - (*it).offset + 1;
-				spMng->deleteLength( (*it).pageID, (*it).buffer, startPos - (*it).offset );
-				
+				//spMng->deleteLength( (*it).pageID, (*it).buffer, startPos - (*it).offset );
+				memcpy( (*it).buffer, buffer, size );
 			}
-			(*it).length = size;
-			(*it).ustrbuffer.assign( buffer );
+			else
+			{
+				if( (*it).buffer != NULL )
+				{
+					spMng->deleteLength( (*it).pageID, (*it).buffer, (*it).length );// we will need bigger buff
+				}
+				spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
+				memcpy( pByteBuffer, buffer, size );
+				(*it).buffer = pByteBuffer;
+				if( size <= (*it).length )
+				{
+					Item.length = i64size;
+				}
+				(*it).length = size;
+			}
 		}
 		else
 		{
-			if( (*it).buffer != NULL && startPos + size - (*it).offset <= (*it).length )
+			if( (*it).buffer != NULL )
 			{
-				//restBuff.assign( (*it).ustrbuffer.substr( startPos + size - (*it).offset,  i64size ) );
-				//(*it).ustrbuffer.erase( startPos - (*it).offset, (*it).length );
-				Item.buffer = (*it).buffer + startPos + size - (*it).offset + 1;
-				spMng->deleteLength( (*it).pageID, (*it).buffer + startPos - (*it).offset, size );
+				if(	startPos + size - (*it).offset <= (*it).length )
+				{
+					//restBuff.assign( (*it).ustrbuffer.substr( startPos + size - (*it).offset,  i64size ) );
+					//(*it).ustrbuffer.erase( startPos - (*it).offset, (*it).length );
+					memcpy( (*it).buffer + startPos - (*it).offset, buffer, size );
+				}
+				else//if to last element from vector we add buffer with size > (*it).lenght
+				{
+					spMng->deleteLength( (*it).pageID, (*it).buffer + startPos - (*it).offset + 1,  i64size );// we will need bigger buff
+					spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
+					memcpy( pByteBuffer, buffer, size );
+					(*it).length = startPos - (*it).offset;
+					Item.buffer = pByteBuffer;
+					Item.pageID = uiPageId;
+					Item.length = size;
+					Item.offset = startPos;
+					it = m_VecChanges.insert( ++it, Item );
+				}
 			}
-			(*it).length = startPos - (*it).offset;
+			else
+			{
+				spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
+				Item.buffer = pByteBuffer;
+				Item.pageID = uiPageId;
 			
-			Item.ustrbuffer.assign( buffer );
-			Item.length = size;
-			Item.offset = startPos;
-			Item.pageID = (*it).pageID;
-			it = m_VecChanges.insert( ++it, Item );
+				(*it).length = startPos - (*it).offset;
+
+				Item.ustrbuffer.assign( buffer );
+				Item.length = size;
+				Item.offset = startPos;
+				it = m_VecChanges.insert( ++it, Item );
+			}
 		}
 		//for itEnd
-		if( Item.buffer != NULL )
+		if( Item.buffer !=  NULL )
 		{
-			slice Item;
-			Item.ustrbuffer.swap( std::move( restBuff ) );
-			Item.length = i64size;
-			Item.offset = startPos + size;
-			m_VecChanges.insert( ++it, Item );
+			slice sItem;
+			sItem.ustrbuffer.swap( std::move( restBuff ) );
+			sItem.length = i64size;
+			sItem.offset = startPos + size;
+			m_VecChanges.insert( ++it, sItem );
 		}
 	}
 
