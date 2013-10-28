@@ -88,7 +88,7 @@ public:
 	BOOL FileClose( HANDLE file );
 private:
 	void updateDataFile();
-	void checkIfCommit();
+	void checkIfCommit( __int64 len );
 	DWORD writeToFile( HANDLE hFile, PBYTE pBufer, __int64 offset, DWORD dwLength ); 
 
 	ElasticFile( const ElasticFile& );

@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <iostream>
 
+const __int64 MAX_BUFF = 65536;
+
 ElasticFile::ElasticFile(void) : m_filePos(0), m_fileSize(0), m_BufferCommitSize( 0 ), m_dwSystemGranularity( 0 ), m_reserved( 16 )
 {
 	_SYSTEM_INFO sysInfo ={0};
@@ -92,7 +94,6 @@ HANDLE ElasticFile::FileOpen( std::wstring& FileName, OpenMode Mode )
 	}
 	
 	//m_Changes.push_back( start );
-	m_filePos = 0;
 	m_BufferCommitSize = 0;
 
 	return hFile;
@@ -100,9 +101,8 @@ HANDLE ElasticFile::FileOpen( std::wstring& FileName, OpenMode Mode )
 
 BOOL ElasticFile::FileSetCursor( HANDLE file, ULONG Offset, CursorMoveMode Mode )
 {
-	checkIfCommit();
-	
 	DWORD dwMode = FILE_CURRENT;
+	
 	switch( Mode )//set where cursor should be located after adding Offset 
 	{
 		case Begin:   dwMode = FILE_BEGIN; m_filePos = Offset; 
@@ -117,6 +117,7 @@ BOOL ElasticFile::FileSetCursor( HANDLE file, ULONG Offset, CursorMoveMode Mode 
 			break;
 	}//m_filePos changed
 
+	checkIfCommit( m_filePos - m_fileSize );
 	LARGE_INTEGER largeInt;
 	largeInt.QuadPart = Offset;
 	if( ::SetFilePointerEx( file, largeInt, 0, dwMode ) )
@@ -168,7 +169,7 @@ ULONG ElasticFile::FileRead( HANDLE file, PBYTE buffer, ULONG size )
 		return 0;
 	}
 
-	checkIfCommit();
+	checkIfCommit( size );
 	//Find where in file vector of chuncks is placed our currsor 
 	//then find buffer from map
 	unsigned int index    = 0;
@@ -233,7 +234,7 @@ ULONG ElasticFile::FileRead( HANDLE file, PBYTE buffer, ULONG size )
 
 ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwrite )
 {
-	checkIfCommit();
+	checkIfCommit( size );
 	__int64 writen = m_spMemoFile->insert( m_filePos, buffer, size, overwrite );
 	if( !overwrite )
 	{
@@ -251,7 +252,7 @@ ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwr
 
 bool ElasticFile::FileTruncate( HANDLE file, ULONG cutSize )
 {
-	checkIfCommit();
+	//checkIfCommit();
 		
 	return m_spMemoFile->truncate( m_filePos, cutSize );
 	
@@ -268,16 +269,15 @@ BOOL ElasticFile::FileClose( HANDLE file )
 	return value;
 }
 
-void ElasticFile::checkIfCommit()
+void ElasticFile::checkIfCommit( __int64 len )
 {
-	if ( m_BufferCommitSize > 100 * 1024 * 1024 || m_spMemoFile->getChanges().size() > m_reserved )//no more then 100MB and 65535 elements in vector buffer
+	std::shared_ptr<VirtualMemoManager> spMng = VirtualMemoManager::getInstance();
+	if ( !spMng->isEnoughSpace( len ) )
 	{
 		updateDataFile();
-		if( m_reserved < 65535 )
-		{
-			m_reserved *= 2;
-		}
+	
 		FileOpen( m_FileName, Open );//reopen file after update
+		spMng->resetManager();
 	}
 }
 void ElasticFile::updateDataFile()
@@ -321,7 +321,7 @@ void ElasticFile::updateDataFile()
 	{
 		if( (*it).length > 0 )
 		{
-			if( (*it).ustrbuffer.empty() )
+			if( (*it).buffer == NULL )
 			{
 				//read from original file
 				//DWORD dwview = (*it).length;
@@ -334,26 +334,28 @@ void ElasticFile::updateDataFile()
 					//	dwview = static_cast<DWORD>(m_fileSize - j);//for last step when buffer is smaller then page size
 					//}
 					//BYTE *pbuf = (BYTE*)::MapViewOfFile( hMemMap, FILE_MAP_READ, high, low, 0 );
-					if( it != listChanges.begin() )
-					{
-						prevIt = std::prev( it, 1 );
-						if( !(*prevIt).ustrbuffer.empty() )
-						{
-							fileOffset += (*prevIt).length;
-						}
-					}
 
-					BYTE *pbuf = new BYTE[ (*it).length + 1 ]; 
-					li.QuadPart = (*it).offset - fileOffset;
+					DWORD dwReaden  = 0;
+					__int64 i64read = std::min( MAX_BUFF, (*it).length );
+					BYTE *pbuf = new BYTE[ i64read ];
+
+					while( (*it).length > 0 )
+					{
+						li.QuadPart = (*it).offset - fileOffset + dwReaden;
 					
-					::SetFilePointerEx( m_fileHandle, li, 0, FILE_BEGIN );
-					if ( ::ReadFile( m_fileHandle, pbuf, (*it).length, &dwRead, NULL ) )
-					{
-						tempFileCursor += writeToFile( hTempFile, pbuf, tempFileCursor, (*it).length );
-					}
-					else
-					{
-						ErrorLoger::ErrorMessage(L"ReadFile");
+						::SetFilePointerEx( m_fileHandle, li, 0, FILE_BEGIN );
+						if ( ::ReadFile( m_fileHandle, pbuf, i64read, &dwRead, NULL ) )
+						{
+							tempFileCursor += writeToFile( hTempFile, pbuf, tempFileCursor, i64read );
+							dwReaden += i64read + 1;//for offset
+							(*it).length -= i64read;
+							i64read = std::min( MAX_BUFF, (*it).length );
+						}
+						else
+						{
+							ErrorLoger::ErrorMessage(L"ReadFile");
+							break;
+						}
 					}
 					delete []pbuf;
 					//::UnmapViewOfFile( pbuf );
@@ -362,7 +364,8 @@ void ElasticFile::updateDataFile()
 			else
 			{
 				//read from buffer
-				tempFileCursor += writeToFile( hTempFile, static_cast<PBYTE>(const_cast<unsigned char*>((*it).ustrbuffer.c_str())), tempFileCursor, (*it).length );
+				tempFileCursor += writeToFile( hTempFile, (*it).buffer, tempFileCursor, (*it).length );
+				fileOffset += (*it).length;
 			}
 		}
 

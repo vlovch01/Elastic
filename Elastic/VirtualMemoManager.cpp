@@ -1,11 +1,11 @@
 #include "VirtualMemoManager.h"
 #include "ErrorLoger.h"
 
-const unsigned int OneKilo = 1024;
+const unsigned long long OneAndHalfGb = 1.5 * 1024 * 1024 * 1024;
 
 std::shared_ptr<VirtualMemoManager>& VirtualMemoManager::getInstance()
 {
-	static std::shared_ptr<VirtualMemoManager> instance;
+	static std::shared_ptr<VirtualMemoManager> instance;//on VS2012 and higher we should use std::scoped_ptr as a member variable
 	if( !instance )
 	{
 		instance.reset( new VirtualMemoManager() );
@@ -13,15 +13,20 @@ std::shared_ptr<VirtualMemoManager>& VirtualMemoManager::getInstance()
 	return instance;
 }
 
-VirtualMemoManager::VirtualMemoManager(  )
+VirtualMemoManager::VirtualMemoManager(  ) : m_currentPage(0)
+{
+	init();
+}
+void VirtualMemoManager::init()
 {
 	_SYSTEM_INFO sysInfo ={0};
 	::GetSystemInfo( &sysInfo );
  
 	m_pageSize = sysInfo.dwAllocationGranularity * 64;
-	for( unsigned long i = 0; i < OneKilo; ++i )
+	unsigned int count = OneAndHalfGb / m_pageSize;
+
+	for( unsigned long i = 0; i < count; ++i )
 	{
-		//For 32bit binary system will allocate 2GB but for 64bit 4gb
 		PBYTE pByte = (PBYTE)::VirtualAlloc( NULL, m_pageSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE );//Page will have 4MB 
 		if( !pByte )
 		{
@@ -35,8 +40,21 @@ VirtualMemoManager::VirtualMemoManager(  )
 			m_VPages.push_back( pageInfo );
 		}
 	}
+	m_freeMem = OneAndHalfGb;
 }
-
+void VirtualMemoManager::resetManager()
+{
+	for( unsigned int index = 0; index < m_VPages.size(); ++index )
+	{
+		::VirtualFree( (PVOID)m_VPages[index].m_pBegin, m_pageSize, MEM_DECOMMIT );
+		m_VPages[index].m_pBegin = (PBYTE)::VirtualAlloc( (PVOID)m_VPages[index].m_pBegin, m_pageSize, MEM_COMMIT, PAGE_READWRITE );
+		m_VPages[index].m_pCurrentPos = m_VPages[index].m_pBegin;
+	}
+	
+	std::list<Blanks>().swap( m_listBlanks );
+	m_freeMem = OneAndHalfGb;
+	m_currentPage = 0;
+}
 
 VirtualMemoManager::~VirtualMemoManager(void)
 {
@@ -45,7 +63,7 @@ VirtualMemoManager::~VirtualMemoManager(void)
 	{
 		if( (*it).m_pBegin )
 		{
-			BOOL value = ::VirtualFree( (*it).m_pBegin, 0, MEM_FREE );
+			BOOL value = ::VirtualFree( (*it).m_pBegin, 0, MEM_RELEASE );
 			if( !value )
 			{
 				ErrorLoger::ErrorMessage(L"VirtualFree - faild on page dealocation");
@@ -54,7 +72,7 @@ VirtualMemoManager::~VirtualMemoManager(void)
 	}
 }
 
-void VirtualMemoManager::getPointerWithLength(  __int64 len, unsigned int& pageID, PBYTE start )
+void VirtualMemoManager::getPointerWithLength(  __int64 len, unsigned int& pageID, PBYTE &start )
 {
 	unsigned int index = 0;
 	pageID = 0;
@@ -66,7 +84,9 @@ void VirtualMemoManager::getPointerWithLength(  __int64 len, unsigned int& pageI
 		{
 			pageID = index;
 			start  = m_VPages[index].m_pCurrentPos;
-			m_VPages[index].m_pCurrentPos += len + 1;
+			m_VPages[index].m_pCurrentPos += len;
+			m_freeMem -= len;
+			m_currentPage = index;
 			return;
 		}
 	}
@@ -106,4 +126,19 @@ void VirtualMemoManager::deleteLength( unsigned int& pageId, PBYTE start, __int6
 		black.uiPageId = pageId;
 		m_listBlanks.push_back( black );
 	}
+}
+
+bool VirtualMemoManager::isEnoughSpace( __int64 len )const
+{
+	unsigned int tempPage = m_currentPage;
+	while( tempPage < m_VPages.size() )
+	{
+		if( m_VPages[tempPage].m_pBegin + m_pageSize - m_VPages[tempPage].m_pCurrentPos >= len )
+		{
+			return true;
+		}
+		++tempPage;
+	}
+
+	return false;
 }
