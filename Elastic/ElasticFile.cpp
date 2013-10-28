@@ -149,7 +149,7 @@ BOOL ElasticFile::FileSetCursor( HANDLE file, ULONG Offset, CursorMoveMode Mode 
 		ErrorLoger::ErrorMessage(L"SetFilePointerEx");
 		return FALSE;
 	}
-	return FALSE;
+	return TRUE;
 }
 
 
@@ -254,8 +254,13 @@ bool ElasticFile::FileTruncate( HANDLE file, ULONG cutSize )
 {
 	//checkIfCommit();
 		
-	return m_spMemoFile->truncate( m_filePos, cutSize );
+	bool value =  m_spMemoFile->truncate( m_filePos, cutSize );
+	if( value )
+	{
+		m_fileSize -= cutSize;
+	}
 	
+	return value;
 }
 
 BOOL ElasticFile::FileClose( HANDLE file )
@@ -292,7 +297,7 @@ void ElasticFile::updateDataFile()
 	}
 
 	HANDLE hTempFile;
-	__int64 tempFileCursor = (*it).offset;
+	__int64 tempFileCursor = 0;
 
 	TCHAR tempFileName[MAX_PATH + 1] = {'\0'};
 	if( ::GetTempPath( MAX_PATH, tempFileName ) )
@@ -382,7 +387,7 @@ void ElasticFile::updateDataFile()
 DWORD ElasticFile::writeToFile( HANDLE hFile, PBYTE pBufer, __int64 offset, DWORD dwLength )
 {
 	LARGE_INTEGER lInt ={ 0 };
-	lInt.QuadPart =  ( offset == 0 ? 0 : offset  );
+	lInt.QuadPart = offset;
 
 	if( ::SetFilePointerEx( hFile, lInt, 0, FILE_BEGIN ) )
 	{

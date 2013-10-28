@@ -30,38 +30,43 @@ int _tmain(int argc, _TCHAR* argv[])
 	std::cin>>N;
 
 	srand( time( NULL ) );
-	HANDLE hFile = elasticFile.FileOpen(strFileName, ElasticFile::Open );
+	HANDLE hFile = elasticFile.FileOpen(strFileName, ElasticFile::Create );
 	unsigned short randNumber = 0;
 
-	//PBYTE pbyte = new BYTE[ m + 1];
-	//for( __int64 index = 1; index <= N; ++index )
-	//{
-	//	for( __int64 j = 0; j < m; ++j )
-	//	{
-	//		randNumber = rand() % alpha.size();
-	//		pbyte[j] = alpha[randNumber];
-	//	}
-	//	//std::cout<<strRand.c_str()<<std::endl;
-	//	elasticFile.FileWrite( hFile, pbyte, m, false );
-	//}
-	//
-	//std::cout<<std::endl<<"Numbers "<<std::endl;
-	//delete []pbyte;
+	elasticFile.FileSetCursor( hFile, 0, ElasticFile::End );
+	__int64 fileSize = elasticFile.FileGetCursor( hFile );
+	elasticFile.FileSetCursor( hFile, 0, ElasticFile::Begin );
+	elasticFile.FileTruncate( hFile, fileSize / 4 );
+	PBYTE pbyte = new BYTE[ m + 1];
+	for( __int64 index = 1; index <= N; ++index )
+	{
+		for( __int64 j = 0; j < m; ++j )
+		{
+			randNumber = rand() % alpha.size();
+			pbyte[j] = alpha[randNumber];
+		}
+		//std::cout<<strRand.c_str()<<std::endl;
+		elasticFile.FileWrite( hFile, pbyte, m, false );
+	}
+	
+	std::cout<<std::endl<<"Numbers "<<std::endl;
+	delete []pbyte;
 
-	//pbyte = new BYTE[ M + 1];
-	//for( __int64 index = 1; index <= N; ++index )
-	//{
-	//	
-	//	for( __int64 j = 1; j <= M; ++j )
-	//	{
-	//		randNumber = rand() % number.size();
-	//		pbyte[j-1] = number[ randNumber ];
-	//	}
-	//	elasticFile.FileSetCursor( hFile, index * m + ( index - 1 ) * M, ElasticFile::Begin );
-	//	elasticFile.FileWrite( hFile, pbyte, M, false );
-	//	//std::cout<<strRand.c_str()<<std::endl;
-	//}
-	//delete []pbyte;
+	pbyte = new BYTE[ M + 1];
+	for( __int64 index = 1; index <= N; ++index )
+	{
+		
+		for( __int64 j = 1; j <= M; ++j )
+		{
+			randNumber = rand() % number.size();
+			pbyte[j-1] = number[ randNumber ];
+		}
+		elasticFile.FileSetCursor( hFile, index * m + ( index - 1 ) * M, ElasticFile::Begin );
+		elasticFile.FileWrite( hFile, pbyte, M, false );
+		//std::cout<<strRand.c_str()<<std::endl;
+	}
+	delete []pbyte;
+
 
 	//elasticFile.FileSetCursor( hFile, 15, ElasticFile::Begin );
 	//BYTE buffer[21] = "0011223344556677";
@@ -70,7 +75,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	//BYTE buff[21] = "!!@@##$$%%^^&&";
 	//elasticFile.FileWrite( hFile, buff, 14, true );
 	//elasticFile.FileSetCursor( hFile, 16 * 1024, ElasticFile::CursorMoveMode::End );
-	elasticFile.FileSetCursor( hFile, 3 * 1024 * 1024, ElasticFile::Begin );
+	//elasticFile.FileSetCursor( hFile, 3 * 1024 * 1024, ElasticFile::Begin );
 	std::cout<<"DONE!!!"<<std::endl;
 	_getch();
 

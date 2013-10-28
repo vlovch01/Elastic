@@ -35,7 +35,9 @@ __int64 MemoFile::insert  ( __int64 startPos, PBYTE buffer, __int64 size, bool o
 	else
 	{
 		return insertNoOverWrite( startPos, buffer, size );
-	}	
+	}
+
+	tryCompresion();
 }
 
 bool MemoFile::truncate( __int64 startPos, __int64 size )
@@ -117,9 +119,15 @@ bool MemoFile::truncate( __int64 startPos, __int64 size )
 					Item.pageID = (*it).pageID;
 				}
 				(*it).length = ulStart;
+				
 				Item.offset = startPos + size + 1;
 //				Item.ustrbuffer.swap( std::move( ustrRest ) );
 				it = m_VecChanges.insert( ++it, Item );
+				if( ulStart == 0 )
+				{
+					--it;
+					it = m_VecChanges.erase( it );
+				}
 			}
 		}
 	}
@@ -129,7 +137,7 @@ bool MemoFile::truncate( __int64 startPos, __int64 size )
 	{
 		obj.offset = obj.offset - size;
 	});
-	return false;
+	return true;
 }
 
 
@@ -425,4 +433,9 @@ void MemoFile::swapContainer( __int64 startPos, __int64 size )
 	temp.push_back( item );
 	m_VecChanges.swap( std::move( temp ) );
 	m_CommitSize = 0;
+}
+
+void MemoFile::tryCompresion()
+{
+
 }
