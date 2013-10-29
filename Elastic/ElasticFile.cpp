@@ -253,7 +253,11 @@ ULONG ElasticFile::FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwr
 bool ElasticFile::FileTruncate( HANDLE file, ULONG cutSize )
 {
 	//checkIfCommit();
-		
+	if( cutSize == 0 )
+	{
+		return false;
+	}
+
 	bool value =  m_spMemoFile->truncate( m_filePos, cutSize );
 	if( value )
 	{

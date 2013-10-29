@@ -38,14 +38,16 @@ int _tmain(int argc, _TCHAR* argv[])
 	elasticFile.FileSetCursor( hFile, 0, ElasticFile::Begin );
 	elasticFile.FileTruncate( hFile, fileSize / 4 );
 	PBYTE pbyte = new BYTE[ m + 1];
+	pbyte[ m ] ='\0';
 	for( __int64 index = 1; index <= N; ++index )
 	{
-		for( __int64 j = 0; j < m; ++j )
+		for( __int64 j = 1; j <= m; ++j )
 		{
 			randNumber = rand() % alpha.size();
-			pbyte[j] = alpha[randNumber];
+			pbyte[j - 1] = alpha[randNumber];
 		}
-		//std::cout<<strRand.c_str()<<std::endl;
+		std::cout<<pbyte<<std::endl;
+		elasticFile.FileSetCursor( hFile, (index - 1) * m, ElasticFile::Begin ); 
 		elasticFile.FileWrite( hFile, pbyte, m, false );
 	}
 	
@@ -53,17 +55,18 @@ int _tmain(int argc, _TCHAR* argv[])
 	delete []pbyte;
 
 	pbyte = new BYTE[ M + 1];
+	pbyte[M] = '\0';
 	for( __int64 index = 1; index <= N; ++index )
 	{
 		
 		for( __int64 j = 1; j <= M; ++j )
 		{
 			randNumber = rand() % number.size();
-			pbyte[j-1] = number[ randNumber ];
+			pbyte[j - 1] = number[ randNumber ];
 		}
 		elasticFile.FileSetCursor( hFile, index * m + ( index - 1 ) * M, ElasticFile::Begin );
 		elasticFile.FileWrite( hFile, pbyte, M, false );
-		//std::cout<<strRand.c_str()<<std::endl;
+		std::cout<<pbyte<<std::endl;
 	}
 	delete []pbyte;
 

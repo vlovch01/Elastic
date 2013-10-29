@@ -31,7 +31,7 @@ private:
 	MemoFile& operator=( const MemoFile& );
 	inline std::list<slice>::iterator findPositionInVector( __int64 startPos );
 
-	void tryCompresion();
+	inline void tryCompresion();
 	__int64 insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size );
 	__int64 insertNoOverWrite( __int64 startPost, PBYTE buffer, __int64 size );
 

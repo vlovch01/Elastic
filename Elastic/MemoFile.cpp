@@ -4,7 +4,7 @@
 #include <functional>
 #include <assert.h>
 
-MemoFile::MemoFile( __int64 startPos, __int64 size )
+MemoFile::MemoFile( __int64 startPos, __int64 size ) : m_CommitSize( 0 )
 {
 	if( size != 0 )
 	{
@@ -28,20 +28,27 @@ __int64 MemoFile::read   ( __int64 startPos, PBYTE buffer, __int64 size )
 
 __int64 MemoFile::insert  ( __int64 startPos, PBYTE buffer, __int64 size, bool overwrite )
 {
+	__int64 val = 0;
+
 	if( overwrite )
 	{
-		return insertOverWrite( startPos, buffer, size );
+		val = insertOverWrite( startPos, buffer, size );
 	}
 	else
 	{
-		return insertNoOverWrite( startPos, buffer, size );
+		val = insertNoOverWrite( startPos, buffer, size );
 	}
 
 	tryCompresion();
+	return val;
 }
 
 bool MemoFile::truncate( __int64 startPos, __int64 size )
 {
+	if( m_VecChanges.empty() && m_CommitSize == 0 )
+	{
+		return false;
+	}
 	std::shared_ptr<VirtualMemoManager> spMng = VirtualMemoManager::getInstance();
 	std::list<slice>::iterator it    = findPositionInVector( startPos );
 	std::list<slice>::iterator itEnd = findPositionInVector( startPos + size );
@@ -437,5 +444,21 @@ void MemoFile::swapContainer( __int64 startPos, __int64 size )
 
 void MemoFile::tryCompresion()
 {
-
+	//std::list<slice>::iterator itComp = m_VecChanges.begin();
+	//std::list<slice>::iterator itNext = std::next( itComp );
+	//while( itNext != m_VecChanges.end() )
+	//{
+	//	if( (*itNext).buffer && (*itComp).buffer && 
+	//		(*itNext).buffer == (*itComp).buffer + (*itComp).length && (*itNext).pageID == (*itComp).pageID )
+	//	{
+	//		//do compresion 
+	//		(*itComp).length += (*itNext).length;
+	//		itNext = m_VecChanges.erase( itNext );
+	//	}
+	//	else
+	//	{
+	//		itComp = itNext;
+	//		++itNext;
+	//	}
+	//}
 }
