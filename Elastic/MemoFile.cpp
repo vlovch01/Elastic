@@ -378,7 +378,7 @@ __int64 MemoFile::insertNoOverWrite( __int64 startPos, PBYTE buffer, __int64 siz
 		EndItem.length = i64size;
 		if( (*it).buffer != NULL )
 		{
-			EndItem.buffer = (*it).buffer + startPos - (*it).offset + 1;
+			EndItem.buffer = (*it).buffer + startPos - (*it).offset;
 			EndItem.pageID = (*it).pageID;
 		}
 		it = m_VecChanges.insert( ++it, Item );
@@ -393,6 +393,7 @@ __int64 MemoFile::insertNoOverWrite( __int64 startPos, PBYTE buffer, __int64 siz
 		else
 		{
 			m_VecChanges.push_back( Item );
+			++it;
 		}
 	}
 	++it;
@@ -444,21 +445,21 @@ void MemoFile::swapContainer( __int64 startPos, __int64 size )
 
 void MemoFile::tryCompresion()
 {
-	//std::list<slice>::iterator itComp = m_VecChanges.begin();
-	//std::list<slice>::iterator itNext = std::next( itComp );
-	//while( itNext != m_VecChanges.end() )
-	//{
-	//	if( (*itNext).buffer && (*itComp).buffer && 
-	//		(*itNext).buffer == (*itComp).buffer + (*itComp).length && (*itNext).pageID == (*itComp).pageID )
-	//	{
-	//		//do compresion 
-	//		(*itComp).length += (*itNext).length;
-	//		itNext = m_VecChanges.erase( itNext );
-	//	}
-	//	else
-	//	{
-	//		itComp = itNext;
-	//		++itNext;
-	//	}
-	//}
+	std::list<slice>::iterator itComp = m_VecChanges.begin();
+	std::list<slice>::iterator itNext = std::next( itComp );
+	while( itNext != m_VecChanges.end() )
+	{
+		if( (*itNext).buffer && (*itComp).buffer && 
+			(*itNext).buffer == (*itComp).buffer + (*itComp).length && (*itNext).pageID == (*itComp).pageID )
+		{
+			//do compresion 
+			(*itComp).length += (*itNext).length;
+			itNext = m_VecChanges.erase( itNext );
+		}
+		else
+		{
+			itComp = itNext;
+			++itNext;
+		}
+	}
 }

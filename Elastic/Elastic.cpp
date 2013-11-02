@@ -26,6 +26,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	std::cout<<std::endl;
 	std::cout<<"Input second pass number :";
 	std::cin>>M;
+	std::cout<<std::endl;
 	std::cout<<"Input number of iterations :";
 	std::cin>>N;
 
@@ -37,38 +38,38 @@ int _tmain(int argc, _TCHAR* argv[])
 	__int64 fileSize = elasticFile.FileGetCursor( hFile );
 	elasticFile.FileSetCursor( hFile, 0, ElasticFile::Begin );
 	elasticFile.FileTruncate( hFile, fileSize / 4 );
-	PBYTE pbyte = new BYTE[ m + 1];
-	pbyte[ m ] ='\0';
-	for( __int64 index = 1; index <= N; ++index )
-	{
-		for( __int64 j = 1; j <= m; ++j )
-		{
-			randNumber = rand() % alpha.size();
-			pbyte[j - 1] = alpha[randNumber];
-		}
-		std::cout<<pbyte<<std::endl;
-		elasticFile.FileSetCursor( hFile, (index - 1) * m, ElasticFile::Begin ); 
-		elasticFile.FileWrite( hFile, pbyte, m, false );
-	}
-	
-	std::cout<<std::endl<<"Numbers "<<std::endl;
-	delete []pbyte;
+	//PBYTE pbyte = new BYTE[ m + 1];
+	//pbyte[ m ] ='\0';
+	//for( __int64 index = 1; index <= N; ++index )
+	//{
+	//	for( __int64 j = 1; j <= m; ++j )
+	//	{
+	//		randNumber = rand() % alpha.size();
+	//		pbyte[j - 1] = alpha[randNumber];
+	//	}
+	//	//std::cout<<pbyte<<std::endl;
+	//	elasticFile.FileSetCursor( hFile, (index - 1) * m, ElasticFile::Begin ); 
+	//	elasticFile.FileWrite( hFile, pbyte, m, false );
+	//}
+	//
+	//std::cout<<std::endl<<"Numbers "<<std::endl;
+	//delete []pbyte;
 
-	pbyte = new BYTE[ M + 1];
-	pbyte[M] = '\0';
-	for( __int64 index = 1; index <= N; ++index )
-	{
-		
-		for( __int64 j = 1; j <= M; ++j )
-		{
-			randNumber = rand() % number.size();
-			pbyte[j - 1] = number[ randNumber ];
-		}
-		elasticFile.FileSetCursor( hFile, index * m + ( index - 1 ) * M, ElasticFile::Begin );
-		elasticFile.FileWrite( hFile, pbyte, M, false );
-		std::cout<<pbyte<<std::endl;
-	}
-	delete []pbyte;
+	//pbyte = new BYTE[ M + 1];
+	//pbyte[M] = '\0';
+	//for( __int64 index = 1; index <= N; ++index )
+	//{
+	//	
+	//	for( __int64 j = 1; j <= M; ++j )
+	//	{
+	//		randNumber = rand() % number.size();
+	//		pbyte[j - 1] = number[ randNumber ];
+	//	}
+	//	elasticFile.FileSetCursor( hFile, index * m + ( index - 1 ) * M, ElasticFile::Begin );
+	//	elasticFile.FileWrite( hFile, pbyte, M, false );
+	//	//std::cout<<pbyte<<std::endl;
+	//}
+	//delete []pbyte;
 
 
 	//elasticFile.FileSetCursor( hFile, 15, ElasticFile::Begin );
@@ -79,7 +80,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	//elasticFile.FileWrite( hFile, buff, 14, true );
 	//elasticFile.FileSetCursor( hFile, 16 * 1024, ElasticFile::CursorMoveMode::End );
 	//elasticFile.FileSetCursor( hFile, 3 * 1024 * 1024, ElasticFile::Begin );
-	std::cout<<"DONE!!!"<<std::endl;
+	//std::cout<<"DONE!!!"<<std::endl;
 	_getch();
 
 	return 0;
