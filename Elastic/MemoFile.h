@@ -9,11 +9,12 @@ class MemoFile
 public:
 	struct slice
 	{
-		slice(): length(0), pageID(0), buffer(NULL){}
+		slice(): offset(0), length(0), pageID(0), buffer(NULL), overwrite( false ){}
 		__int64 offset;
 		__int64 length;
 		unsigned int pageID;
 		PBYTE buffer;
+		bool overwrite;
 	};
 public:
 	MemoFile( __int64 startPos, __int64 size );
@@ -26,11 +27,11 @@ public:
 
 	const std::list<slice>& getChanges()const { return m_VecChanges; }
 	void swapContainer( __int64 startPos, __int64 size );
+	inline std::list<slice>::iterator findPositionInVector( __int64 startPos );
 private:
 	MemoFile( const MemoFile& );
 	MemoFile& operator=( const MemoFile& );
-	inline std::list<slice>::iterator findPositionInVector( __int64 startPos );
-
+	
 	inline void tryCompresion();
 	__int64 insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size );
 	__int64 insertNoOverWrite( __int64 startPost, PBYTE buffer, __int64 size );

@@ -22,7 +22,6 @@ MemoFile::~MemoFile(void)
 
 __int64 MemoFile::read   ( __int64 startPos, PBYTE buffer, __int64 size )
 {
-
 	return 0;
 }
 
@@ -122,12 +121,12 @@ bool MemoFile::truncate( __int64 startPos, __int64 size )
 				{
 //					ustrRest.append( (*it).ustrbuffer.substr( ulEnd, (*it).length - ulEnd ) );
 					spMng->deleteLength( (*it).pageID, (*it).buffer + ulStart, size );
-					Item.buffer = (*it).buffer += ulStart + size + 1;
+					Item.buffer = (*it).buffer + ulStart + size + 1;
 					Item.pageID = (*it).pageID;
 				}
 				(*it).length = ulStart;
 				
-				Item.offset = startPos + size + 1;
+				Item.offset = startPos + size;
 //				Item.ustrbuffer.swap( std::move( ustrRest ) );
 				it = m_VecChanges.insert( ++it, Item );
 				if( ulStart == 0 )
@@ -177,7 +176,7 @@ inline std::list<MemoFile::slice>::iterator MemoFile::findPositionInVector( __in
 	//	return --it;
 	//}
 	
-	return --it;
+	return it == m_VecChanges.begin() ? it : --it;
 }
 
 __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size )
@@ -192,7 +191,8 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 		slice Item;
 		Item.offset = startPos;
 		Item.length = size;
-		
+		Item.overwrite = true;
+
 		spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
 		Item.pageID = uiPageId;
 		Item.buffer = pByteBuffer;
@@ -237,6 +237,7 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 			spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
 			(*it).pageID = uiPageId;
 			(*it).buffer = pByteBuffer;
+			(*it).overwrite = true;
 			memcpy( pByteBuffer, buffer, size );
 		}
 		else
@@ -253,6 +254,7 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 			Item.pageID = uiPageId;
 			memcpy( pByteBuffer, buffer, size );
 			Item.buffer = pByteBuffer;
+			Item.overwrite = true;
 
 			it = m_VecChanges.insert( ++it, Item );
 		}
@@ -290,10 +292,15 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 				spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
 				memcpy( pByteBuffer, buffer, size );
 				(*it).buffer = pByteBuffer;
+				(*it).overwrite = true;
 				if( size <= (*it).length )
 				{
 					Item.length = i64size;
+					Item.offset  = (*it).offset + size;
+					it = m_VecChanges.insert( ++it, Item );
+					--it;
 				}
+				
 				(*it).length = size;
 			}
 		}
@@ -315,6 +322,7 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 					Item.pageID = uiPageId;
 					Item.length = size;
 					Item.offset = startPos;
+					Item.overwrite = true;
 					it = m_VecChanges.insert( ++it, Item );
 				}
 			}
@@ -323,6 +331,7 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 				spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
 				Item.buffer = pByteBuffer;
 				Item.pageID = uiPageId;
+				Item.overwrite = true;
 				memcpy( pByteBuffer, buffer, size );
 
 				(*it).length = startPos - (*it).offset;

@@ -36,6 +36,9 @@
     <ClInclude Include="ErrorLoger.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="FTimer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -54,6 +57,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ErrorLoger.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FTimer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

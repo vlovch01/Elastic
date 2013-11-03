@@ -59,37 +59,38 @@ public:
 	//Check the SeekOrigin enumeration and declare your own enumeration with similar values (will be passed as Mode parameter).
     ///If the new cursor position is beyond the data which this file contains, the file must be extended up to the required size.
 	///Returns True on success, False otherwise.
-	BOOL FileSetCursor( HANDLE file, ULONG Offset, CursorMoveMode Mode ); 
+	BOOL FileSetCursor( HANDLE &file, ULONG Offset, CursorMoveMode Mode ); 
 	//
 	///Returns the current file cursor offset from the beginning of the file.
 	///When the cursor is positioned at the end of the file this method must return the size of the data which this file contains.
-	__int64 FileGetCursor( HANDLE file );
+	__int64 FileGetCursor( HANDLE &file );
 	//
 	///Read a block of bytes of the requested Size from the File, starting from the current cursor position, 
 	///and put the result into a user allocated memory block passed as Buffer (PBYTE in case of C++).
 	///If the actual amount of data read is less than the requested Size it must be handled gracefully.
 	///Returns the number of bytes actually read from the file into the Buffer.
-	ULONG FileRead( HANDLE file, PBYTE buffer, ULONG size );
+	__int64 FileRead( HANDLE &file, PBYTE buffer, ULONG size );
 	//
 	///Write a block of bytes of the requested Size to the File at the current cursor position. The data to be written is given as a reference to a memory block passed as Buffer (PBYTE in case of C++).
 	///If the Overwrite parameter is True then the data is written in a standard way (overwriting bytes following the current cursor position).
 	///If Overwrite parameter is False then the file must get expanded (stretched) by the required number of bytes at the cursor position, 
 	///thus the data is actually inserted into the file rather then written over.
 	///Returns the number of bytes from the Buffer actually written to the file.
-	ULONG FileWrite( HANDLE file, PBYTE buffer, ULONG size, bool overwrite );
+	ULONG FileWrite( HANDLE &file, PBYTE buffer, ULONG size, bool overwrite );
 	//
 	///Removes the number of bytes passed as the CutSize parameter, starting from the current cursor position.
 	///If the cursor is positioned somewhere inside the file, then the data must still be cut from within the file so that the subsequent reads will not get it.
 	///Returns True on success, False otherwise.
-	bool FileTruncate( HANDLE file, ULONG cutSize );
+	bool FileTruncate( HANDLE &file, ULONG cutSize );
 	//
 	///Closes the file using its handle passed with File parameter.
 	///Returns True on success, False otherwise.
-	BOOL FileClose( HANDLE file );
+	BOOL FileClose( HANDLE &file );
 private:
 	void updateDataFile();
 	void checkIfCommit( __int64 len );
-	DWORD writeToFile( HANDLE hFile, PBYTE pBufer, __int64 offset, DWORD dwLength ); 
+	DWORD writeToFile( HANDLE &hFile, PBYTE pBufer, __int64 offset, DWORD dwLength ); 
+	inline void saveToDisk();
 
 	ElasticFile( const ElasticFile& );
 	ElasticFile& operator=( const ElasticFile& );

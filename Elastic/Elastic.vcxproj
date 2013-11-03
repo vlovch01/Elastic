@@ -79,6 +79,7 @@
   <ItemGroup>
     <ClInclude Include="ElasticFile.h" />
     <ClInclude Include="ErrorLoger.h" />
+    <ClInclude Include="FTimer.h" />
     <ClInclude Include="MemoFile.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
@@ -88,6 +89,7 @@
     <ClCompile Include="Elastic.cpp" />
     <ClCompile Include="ElasticFile.cpp" />
     <ClCompile Include="ErrorLoger.cpp" />
+    <ClCompile Include="FTimer.cpp" />
     <ClCompile Include="MemoFile.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="VirtualMemoManager.cpp" />
