@@ -8,13 +8,8 @@
 
 const __int64 MAX_BUFF = 65536;
 
-ElasticFile::ElasticFile(void) : m_filePos(0), m_fileSize(0), m_BufferCommitSize( 0 ), m_dwSystemGranularity( 0 ), m_reserved( 16 )
+ElasticFile::ElasticFile(void) : m_filePos(0), m_fileSize(0), m_BufferCommitSize( 0 )
 {
-	_SYSTEM_INFO sysInfo ={0};
-	::GetSystemInfo( &sysInfo );
-	m_dwSystemGranularity = sysInfo.dwAllocationGranularity * 2;
-
-	
 }
 
 
@@ -73,10 +68,6 @@ HANDLE ElasticFile::FileOpen( std::wstring& FileName, OpenMode Mode )
 	}
 
 	m_fileHandle = hFile;
-	//chunk start;
-	//start.offset = 0;
-	//start.lenght = 0;
-	//start._chunkStatus = NotChanged;
 
 	LARGE_INTEGER largeInt;
 	if( ::GetFileSizeEx( hFile, &largeInt ) )
@@ -125,10 +116,6 @@ BOOL ElasticFile::FileSetCursor( HANDLE &file, ULONG Offset, CursorMoveMode Mode
 		if( m_filePos > m_fileSize )
 		{
 			//If the new cursor position is beyond the data which this file contains, the file must be extended up to the required size.
-	/*		m_Changes[ m_Changes.size() - 1].lenght += m_filePos - m_fileSize;
-			ustring str( m_filePos - m_fileSize, ' ' );
-			m_Changes[ m_Changes.size() - 1].usbuffer.append( str );
-			m_BufferCommitSize += m_filePos - m_fileSize;*/
 			m_spMemoFile->inscrease( m_filePos - m_fileSize );
 			m_BufferCommitSize += m_filePos - m_fileSize;
 			m_fileSize         += m_filePos - m_fileSize;
@@ -258,7 +245,7 @@ BOOL ElasticFile::FileClose( HANDLE &file )
 void ElasticFile::checkIfCommit( __int64 len )
 {
 	std::shared_ptr<VirtualMemoManager> spMng = VirtualMemoManager::getInstance();
-	if ( !spMng->isEnoughSpace( len ) )
+	if ( !spMng->isEnoughSpace( len ) )// || m_spMemoFile->getChanges().size() > 512 * spMng->getNumberOfPages() )
 	{
 		saveToDisk();
 	}
@@ -304,8 +291,7 @@ void ElasticFile::updateDataFile()
 	}
 
 	__int64 fileOffset = 0;
-	//std::vector<chunk>::iterator it = m_Changes.begin();
-//	//HANDLE hMemMap = ::CreateFileMappingW( m_fileHandle, 0, PAGE_READONLY, 0, 0, 0 );
+	
 	DWORD dwRead = 0;
 	LARGE_INTEGER li = {0};
 
@@ -316,17 +302,8 @@ void ElasticFile::updateDataFile()
 			if( (*it).buffer == NULL )
 			{
 				//read from original file
-				//DWORD dwview = (*it).length;
-				//__int64 j = (*it).offset;
 				{
-					//DWORD high = static_cast<DWORD>((j >> 32) & 0xFFFFFFFFul);
-					//DWORD low  = static_cast<DWORD>( j        & 0xFFFFFFFFul);
-					//if( j + dwview > m_fileSize )
-					//{
-					//	dwview = static_cast<DWORD>(m_fileSize - j);//for last step when buffer is smaller then page size
-					//}
-					//BYTE *pbuf = (BYTE*)::MapViewOfFile( hMemMap, FILE_MAP_READ, high, low, 0 );
-
+	
 					DWORD dwReaden  = 0;
 					__int64 i64read = std::min( MAX_BUFF, (*it).length );
 					BYTE *pbuf = new BYTE[ i64read ];
@@ -350,7 +327,6 @@ void ElasticFile::updateDataFile()
 						}
 					}
 					delete []pbuf;
-					//::UnmapViewOfFile( pbuf );
 				}
 			}
 			else
@@ -366,7 +342,6 @@ void ElasticFile::updateDataFile()
 
 	}
 	
-//	::CloseHandle( hMemMap );
 	::CloseHandle( hTempFile );
 	
 	TCHAR fileFullPath[MAX_PATH] = {'\0'};

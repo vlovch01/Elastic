@@ -26,6 +26,7 @@ public:
 	 inline __int64 getPageSize()const{ return m_pageSize; }
 	 bool isEnoughSpace( __int64 len )const;
 	 void resetManager();
+	 __int64 getNumberOfPages(){ return m_numberOfPages; }
 private:
 	VirtualMemoManager( );
 	inline void init();
@@ -35,6 +36,7 @@ private:
 private:
 	__int64 m_pageSize;
 	__int64 m_freeMem;
+	__int64 m_numberOfPages;
 	unsigned int m_currentPage;
 	std::vector<PageInfo> m_VPages;
 	std::list<Blanks> m_listBlanks;

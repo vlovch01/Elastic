@@ -18,13 +18,6 @@ public:
 		Modified,
 		Extended
 	};
-	struct chunk
-	{
-		__int64 offset;
-		__int64 lenght;
-		chunkStatus _chunkStatus;
-		ustring usbuffer;
-	};
 
 	enum EnumFileMode
 	{
@@ -99,10 +92,7 @@ private:
 	__int64 m_filePos;
 	__int64 m_fileSize;
 	__int64 m_BufferCommitSize;
-	DWORD m_dwSystemGranularity;
 	std::wstring m_FileName;
-	__int64 m_reserved;
-	std::vector<chunk> m_Changes;
 
 	std::shared_ptr<MemoFile> m_spMemoFile;
 	HANDLE m_fileHandle;

@@ -13,7 +13,7 @@ std::shared_ptr<VirtualMemoManager>& VirtualMemoManager::getInstance()
 	return instance;
 }
 
-VirtualMemoManager::VirtualMemoManager(  ) : m_currentPage(0)
+VirtualMemoManager::VirtualMemoManager(  ) : m_currentPage(0), m_numberOfPages( 0 )
 {
 	init();
 }
@@ -23,9 +23,9 @@ void VirtualMemoManager::init()
 	::GetSystemInfo( &sysInfo );
  
 	m_pageSize = sysInfo.dwAllocationGranularity * 64;
-	unsigned int count = OneAndHalfGb / m_pageSize;
+	m_numberOfPages = OneAndHalfGb / m_pageSize;
 
-	for( unsigned long i = 0; i < count; ++i )
+	for( unsigned long i = 0; i < m_numberOfPages; ++i )
 	{
 		PBYTE pByte = (PBYTE)::VirtualAlloc( NULL, m_pageSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE );//Page will have 4MB 
 		if( !pByte )

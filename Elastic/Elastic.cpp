@@ -33,7 +33,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	std::cin>>N;
 
 	srand( time( NULL ) );
-	HANDLE hFile = elasticFile.FileOpen(strFileName, ElasticFile::Open );
+	HANDLE hFile = elasticFile.FileOpen(strFileName, ElasticFile::Create );
 	unsigned short randNumber = 0;
 
 	elasticFile.FileSetCursor( hFile, 0, ElasticFile::End );

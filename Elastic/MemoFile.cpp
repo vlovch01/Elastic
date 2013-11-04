@@ -4,7 +4,7 @@
 #include <functional>
 #include <assert.h>
 
-MemoFile::MemoFile( __int64 startPos, __int64 size ) : m_CommitSize( 0 )
+MemoFile::MemoFile( __int64 startPos, __int64 size ) : m_Compress( false ), m_CommitSize( 0 )
 {
 	if( size != 0 )
 	{
@@ -38,7 +38,10 @@ __int64 MemoFile::insert  ( __int64 startPos, PBYTE buffer, __int64 size, bool o
 		val = insertNoOverWrite( startPos, buffer, size );
 	}
 
-	tryCompresion();
+	if( m_Compress )
+	{
+		tryCompresion();
+	}
 	return val;
 }
 
@@ -208,8 +211,8 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 		return 0;
 	}
 
-	std::list<slice>::iterator itEnd;
-	itEnd = findPositionInVector( startPos + size );
+	std::list<slice>::iterator itEnd = findPositionInVector( startPos + size );
+
 	if( itEnd == m_VecChanges.end() )
 	{
 		--itEnd;
@@ -353,6 +356,8 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 }
 __int64 MemoFile::insertNoOverWrite( __int64 startPos, PBYTE buffer, __int64 size )
 {
+	m_Compress = false;
+
 	std::shared_ptr<VirtualMemoManager> spMng = VirtualMemoManager::getInstance();
 	unsigned int uiPageId = 0;
 	PBYTE pByteBuffer = NULL;
@@ -403,6 +408,7 @@ __int64 MemoFile::insertNoOverWrite( __int64 startPos, PBYTE buffer, __int64 siz
 		{
 			m_VecChanges.push_back( Item );
 			++it;
+			m_Compress = true;
 		}
 	}
 	++it;
