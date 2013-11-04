@@ -20,18 +20,22 @@ public:
 	};
 	static std::shared_ptr<VirtualMemoManager>& getInstance( );
 
-	~VirtualMemoManager(void);
-	 void getPointerWithLength( __int64 len, unsigned int& pageID, PBYTE &start );
-	 void deleteLength( unsigned int& pageId, PBYTE start, __int64 len );
-	 inline __int64 getPageSize()const{ return m_pageSize; }
-	 bool isEnoughSpace( __int64 len )const;
-	 void resetManager();
-	 __int64 getNumberOfPages(){ return m_numberOfPages; }
+	~VirtualMemoManager       (void);
+	 bool getPointerWithLength( __int64 len, unsigned int& pageID, PBYTE &start );
+	 void deleteLength        ( unsigned int& pageId, PBYTE start, __int64 len );
+
+	 bool isEnoughSpace       ( __int64 len )const;
+	 void resetManager        ( );
+	 __int64 getNumberOfPages()     const{ return m_numberOfPages; }
+	 inline __int64 getPageSize()   const{ return m_pageSize; }
+	 inline __int64 getCurrentPage()const{ return m_currentPage;}
 private:
 	VirtualMemoManager( );
 	inline void init();
 	VirtualMemoManager( const VirtualMemoManager& );
 	VirtualMemoManager& operator=( const VirtualMemoManager&);
+	VirtualMemoManager& operator=( const VirtualMemoManager&& );
+	VirtualMemoManager( const VirtualMemoManager&& );
 
 private:
 	__int64 m_pageSize;

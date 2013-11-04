@@ -33,11 +33,13 @@ private:
 	MemoFile& operator=( const MemoFile& );
 	
 	inline void tryCompresion( );
+	inline void tryPageCompresion( );
 	__int64 insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size );
 	__int64 insertNoOverWrite( __int64 startPost, PBYTE buffer, __int64 size );
 
 	std::list<slice> m_VecChanges;
 	bool			 m_Compress;
+	bool			 m_PageCompress;
 	__int64          m_CommitSize;
 };
 

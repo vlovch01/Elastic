@@ -4,7 +4,7 @@
 #include <functional>
 #include <assert.h>
 
-MemoFile::MemoFile( __int64 startPos, __int64 size ) : m_Compress( false ), m_CommitSize( 0 )
+MemoFile::MemoFile( __int64 startPos, __int64 size ) : m_Compress( false ), m_PageCompress( false ), m_CommitSize( 0 )
 {
 	if( size != 0 )
 	{
@@ -41,6 +41,11 @@ __int64 MemoFile::insert  ( __int64 startPos, PBYTE buffer, __int64 size, bool o
 	if( m_Compress )
 	{
 		tryCompresion();
+	}
+
+	if( m_PageCompress )
+	{
+		tryPageCompresion();
 	}
 	return val;
 }
@@ -196,7 +201,7 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 		Item.length = size;
 		Item.overwrite = true;
 
-		spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
+		m_PageCompress = spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
 		Item.pageID = uiPageId;
 		Item.buffer = pByteBuffer;
 		memcpy( pByteBuffer, buffer, size );
@@ -237,7 +242,7 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 			{
 				spMng->deleteLength( (*it).pageID, (*it).buffer, (*it).length );
 			}
-			spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
+			m_PageCompress = spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
 			(*it).pageID = uiPageId;
 			(*it).buffer = pByteBuffer;
 			(*it).overwrite = true;
@@ -253,7 +258,7 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 			slice Item;
 			Item.length = size;
 			Item.offset = startPos;
-			spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
+			m_PageCompress = spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
 			Item.pageID = uiPageId;
 			memcpy( pByteBuffer, buffer, size );
 			Item.buffer = pByteBuffer;
@@ -292,7 +297,7 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 				{
 					spMng->deleteLength( (*it).pageID, (*it).buffer, (*it).length );// we will need bigger buff
 				}
-				spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
+				m_PageCompress = spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
 				memcpy( pByteBuffer, buffer, size );
 				(*it).buffer = pByteBuffer;
 				(*it).overwrite = true;
@@ -318,7 +323,7 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 				else//if to last element from vector we add buffer with size > (*it).lenght
 				{
 					spMng->deleteLength( (*it).pageID, (*it).buffer + startPos - (*it).offset + 1,  (*itEnd).offset + (*itEnd).length - startPos );// we will need bigger buff
-					spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
+					m_PageCompress = spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
 					memcpy( pByteBuffer, buffer, size );
 					(*it).length = startPos - (*it).offset;
 					Item.buffer = pByteBuffer;
@@ -331,7 +336,7 @@ __int64 MemoFile::insertOverWrite( __int64 startPos, PBYTE buffer, __int64 size 
 			}
 			else
 			{
-				spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
+				m_PageCompress = spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
 				Item.buffer = pByteBuffer;
 				Item.pageID = uiPageId;
 				Item.overwrite = true;
@@ -361,7 +366,7 @@ __int64 MemoFile::insertNoOverWrite( __int64 startPos, PBYTE buffer, __int64 siz
 	std::shared_ptr<VirtualMemoManager> spMng = VirtualMemoManager::getInstance();
 	unsigned int uiPageId = 0;
 	PBYTE pByteBuffer = NULL;
-	spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
+	m_PageCompress = spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
 	slice Item;
 	Item.offset = startPos;
 	Item.length = size;
@@ -426,7 +431,7 @@ void MemoFile::inscrease( __int64  size )
 	std::shared_ptr<VirtualMemoManager> spMng = VirtualMemoManager::getInstance();
 	unsigned int uiPageId = 0;
 	PBYTE pByteBuffer = NULL;
-	spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
+	m_PageCompress = spMng->getPointerWithLength( size, uiPageId, pByteBuffer );
 	Item.pageID = uiPageId;
 	Item.buffer = pByteBuffer;
 	memset( pByteBuffer, ' ', size );
@@ -476,5 +481,14 @@ void MemoFile::tryCompresion()
 			itComp = itNext;
 			++itNext;
 		}
+	}
+}
+
+void MemoFile::tryPageCompresion( )
+{
+	std::shared_ptr<VirtualMemoManager> spMng = VirtualMemoManager::getInstance();
+	if( spMng->getNumberOfPages() - spMng->getCurrentPage() >= 2 )
+	{
+
 	}
 }

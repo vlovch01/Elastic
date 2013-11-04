@@ -72,11 +72,12 @@ VirtualMemoManager::~VirtualMemoManager(void)
 	}
 }
 
-void VirtualMemoManager::getPointerWithLength(  __int64 len, unsigned int& pageID, PBYTE &start )
+bool VirtualMemoManager::getPointerWithLength(  __int64 len, unsigned int& pageID, PBYTE &start )
 {
 	unsigned int index = 0;
 	pageID = 0;
 	start  = NULL;
+	bool bval = false;
 
 	for( ; index < m_VPages.size(); ++index )
 	{
@@ -87,7 +88,12 @@ void VirtualMemoManager::getPointerWithLength(  __int64 len, unsigned int& pageI
 			m_VPages[index].m_pCurrentPos += len;
 			m_freeMem -= len;
 			m_currentPage = index;
-			return;
+			return bval;
+		}
+		if( m_currentPage == index )
+		{
+			//means page is full
+			bval = true;
 		}
 	}
 
