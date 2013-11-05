@@ -105,7 +105,7 @@ bool VirtualMemoManager::getPointerWithLength(  __int64 len, unsigned int& pageI
 			pageID = (*it).uiPageId;
 			start  = (*it).m_pStart;
 			m_listBlanks.erase( it );
-			return;
+			return false;
 		}
 		else
 		{
@@ -114,7 +114,7 @@ bool VirtualMemoManager::getPointerWithLength(  __int64 len, unsigned int& pageI
 				pageID = (*it).uiPageId;
 				start  = (*it).m_pStart;
 				(*it).m_pStart += len + 1;
-				return;
+				return false;
 			}
 		}
 	}
