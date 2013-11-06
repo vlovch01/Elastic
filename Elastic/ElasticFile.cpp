@@ -245,7 +245,7 @@ BOOL ElasticFile::FileClose( HANDLE &file )
 void ElasticFile::checkIfCommit( __int64 len )
 {
 	std::shared_ptr<VirtualMemoManager> spMng = VirtualMemoManager::getInstance();
-	if ( !spMng->isEnoughSpace( len ) )// || m_spMemoFile->getChanges().size() > 512 * spMng->getNumberOfPages() )
+	if ( !spMng->isEnoughSpace( len )  || m_spMemoFile->getChanges().size() > 8096 )
 	{
 		saveToDisk();
 	}

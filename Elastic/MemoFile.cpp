@@ -489,6 +489,6 @@ void MemoFile::tryPageCompresion( )
 	std::shared_ptr<VirtualMemoManager> spMng = VirtualMemoManager::getInstance();
 	if( spMng->getNumberOfPages() - spMng->getCurrentPage() >= 2 )
 	{
-
+		__int64 i64EmptyPage = spMng->getNextEmptyPage();
 	}
 }

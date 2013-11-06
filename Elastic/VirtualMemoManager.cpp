@@ -105,7 +105,7 @@ bool VirtualMemoManager::getPointerWithLength(  __int64 len, unsigned int& pageI
 			pageID = (*it).uiPageId;
 			start  = (*it).m_pStart;
 			m_listBlanks.erase( it );
-			return;
+			return false;
 		}
 		else
 		{
@@ -114,7 +114,7 @@ bool VirtualMemoManager::getPointerWithLength(  __int64 len, unsigned int& pageI
 				pageID = (*it).uiPageId;
 				start  = (*it).m_pStart;
 				(*it).m_pStart += len + 1;
-				return;
+				return false;
 			}
 		}
 	}
@@ -147,4 +147,13 @@ bool VirtualMemoManager::isEnoughSpace( __int64 len )const
 	}
 
 	return false;
+}
+
+__int64 VirtualMemoManager::getNextEmptyPage()const
+{
+	if( m_VPages[m_currentPage + 1].m_pBegin == m_VPages[m_currentPage + 1].m_pCurrentPos )
+	{
+		return m_currentPage + 1;
+	}
+	return m_currentPage + 2;
 }

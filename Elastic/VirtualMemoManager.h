@@ -29,6 +29,7 @@ public:
 	 __int64 getNumberOfPages()     const{ return m_numberOfPages; }
 	 inline __int64 getPageSize()   const{ return m_pageSize; }
 	 inline __int64 getCurrentPage()const{ return m_currentPage;}
+	 __int64 getNextEmptyPage()const;
 private:
 	VirtualMemoManager( );
 	inline void init();
