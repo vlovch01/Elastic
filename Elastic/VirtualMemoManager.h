@@ -30,9 +30,12 @@ public:
 	 inline __int64 getPageSize()   const{ return m_pageSize; }
 	 inline __int64 getCurrentPage()const{ return m_currentPage;}
 	 __int64 getNextEmptyPage()const;
+	 PBYTE getPageById( unsigned int id )const;
+	 void swapPagesInContainer( unsigned int first, unsigned int second );
 private:
 	VirtualMemoManager( );
 	inline void init();
+	inline void cleanPage( unsigned int id );
 	VirtualMemoManager( const VirtualMemoManager& );
 	VirtualMemoManager& operator=( const VirtualMemoManager&);
 	VirtualMemoManager& operator=( const VirtualMemoManager&& );

@@ -43,7 +43,7 @@ __int64 MemoFile::insert  ( __int64 startPos, PBYTE buffer, __int64 size, bool o
 		tryCompresion();
 	}
 
-	if( m_PageCompress )
+	if( m_PageCompress && m_VecChanges.size() >= 3)
 	{
 		tryPageCompresion();
 	}
@@ -490,5 +490,19 @@ void MemoFile::tryPageCompresion( )
 	if( spMng->getNumberOfPages() - spMng->getCurrentPage() >= 2 )
 	{
 		__int64 i64EmptyPage = spMng->getNextEmptyPage();
+		PBYTE page = spMng->getPageById( i64EmptyPage );
+		std::list<slice>::iterator itBegin = m_VecChanges.begin();
+		std::list<slice>::iterator it      = std::next( itBegin );
+		for( ; it != m_VecChanges.end(); ++it )
+		{
+			if( (*itBegin).buffer && (*it).buffer )
+			{
+
+			}
+			else
+			{
+				++itBegin;
+			}
+		}
 	}
 }

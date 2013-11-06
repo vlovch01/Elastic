@@ -46,14 +46,19 @@ void VirtualMemoManager::resetManager()
 {
 	for( unsigned int index = 0; index < m_VPages.size(); ++index )
 	{
-		::VirtualFree( (PVOID)m_VPages[index].m_pBegin, m_pageSize, MEM_DECOMMIT );
-		m_VPages[index].m_pBegin = (PBYTE)::VirtualAlloc( (PVOID)m_VPages[index].m_pBegin, m_pageSize, MEM_COMMIT, PAGE_READWRITE );
-		m_VPages[index].m_pCurrentPos = m_VPages[index].m_pBegin;
+		cleanPage( index );
 	}
 	
 	std::list<Blanks>().swap( m_listBlanks );
 	m_freeMem = OneAndHalfGb;
 	m_currentPage = 0;
+}
+
+void VirtualMemoManager::cleanPage( unsigned int id )
+{
+	::VirtualFree( (PVOID)m_VPages[id].m_pBegin, m_pageSize, MEM_DECOMMIT );
+	m_VPages[id].m_pBegin      = (PBYTE)::VirtualAlloc( (PVOID)m_VPages[id].m_pBegin, m_pageSize, MEM_COMMIT, PAGE_READWRITE );
+	m_VPages[id].m_pCurrentPos = m_VPages[id].m_pBegin;
 }
 
 VirtualMemoManager::~VirtualMemoManager(void)
@@ -156,4 +161,19 @@ __int64 VirtualMemoManager::getNextEmptyPage()const
 		return m_currentPage + 1;
 	}
 	return m_currentPage + 2;
+}
+
+PBYTE VirtualMemoManager::getPageById( unsigned int id )const
+{
+	if( id >= 0 && id < m_VPages.size() )
+	{
+		return m_VPages[id].m_pBegin;
+	}
+	return NULL;
+}
+
+void VirtualMemoManager::swapPagesInContainer( unsigned int first, unsigned int second )
+{
+	cleanPage( second );
+	std::swap( m_VPages[first], m_VPages[second] );
 }
