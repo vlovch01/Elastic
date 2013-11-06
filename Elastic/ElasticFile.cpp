@@ -245,7 +245,7 @@ BOOL ElasticFile::FileClose( HANDLE &file )
 void ElasticFile::checkIfCommit( __int64 len )
 {
 	std::shared_ptr<VirtualMemoManager> spMng = VirtualMemoManager::getInstance();
-	if ( !spMng->isEnoughSpace( len )  || m_spMemoFile->getChanges().size() > 8096 )
+	if ( !spMng->isEnoughSpace( len )  || m_spMemoFile->getChanges().size() > 16192 )
 	{
 		saveToDisk();
 	}
@@ -346,7 +346,9 @@ void ElasticFile::updateDataFile()
 
 	}
 	
+	::FlushFileBuffers( hTempFile );
 	::CloseHandle( hTempFile );
+	::FlushFileBuffers( m_fileHandle );
 	::CloseHandle( m_fileHandle );
 	::GetFullPathName( m_FileName.c_str(), MAX_PATH, fileFullPath, NULL );
 	if( !::MoveFileEx( tempFileName, fileFullPath, MOVEFILE_REPLACE_EXISTING ) )
