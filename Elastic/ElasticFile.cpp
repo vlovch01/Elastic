@@ -274,9 +274,13 @@ void ElasticFile::updateDataFile()
 	__int64 tempFileCursor = 0;
 
 	TCHAR tempFileName[MAX_PATH + 1] = {'\0'};
-	if( ::GetTempPath( MAX_PATH, tempFileName ) )
+	TCHAR fileFullPath[MAX_PATH] = {'\0'};
+	
+
+	if( ::GetFullPathName( m_FileName.c_str(), MAX_PATH, fileFullPath, NULL ) )
 	{
-		if( ::GetTempFileName( tempFileName, TEXT("~TMP"), 0, tempFileName ) )
+		fileFullPath[ wcslen( fileFullPath ) - m_FileName.size() ] = '\0'; 
+		if( ::GetTempFileName( fileFullPath, TEXT("~TMP"), 0, tempFileName ) )
 		{
 			hTempFile = ::CreateFile( tempFileName, GENERIC_READ|GENERIC_WRITE, FILE_SHARE_READ, 0, OPEN_ALWAYS, 0, 0);
 			LARGE_INTEGER set;
@@ -343,10 +347,12 @@ void ElasticFile::updateDataFile()
 	}
 	
 	::CloseHandle( hTempFile );
-	
-	TCHAR fileFullPath[MAX_PATH] = {'\0'};
+	::CloseHandle( m_fileHandle );
 	::GetFullPathName( m_FileName.c_str(), MAX_PATH, fileFullPath, NULL );
-	::MoveFileEx( tempFileName, fileFullPath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED );
+	if( !::MoveFileEx( tempFileName, fileFullPath, MOVEFILE_REPLACE_EXISTING ) )
+	{
+		ErrorLoger::ErrorMessage(L"MoveFileEx");
+	}
 }
 
 DWORD ElasticFile::writeToFile( HANDLE &hFile, PBYTE pBufer, __int64 offset, DWORD dwLength )
