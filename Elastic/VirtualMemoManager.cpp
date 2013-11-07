@@ -123,6 +123,7 @@ bool VirtualMemoManager::getPointerWithLength(  __int64 len, unsigned int& pageI
 			}
 		}
 	}
+	return bval;
 }
 
 void VirtualMemoManager::deleteLength( unsigned int& pageId, PBYTE start, __int64 len )
@@ -154,7 +155,7 @@ bool VirtualMemoManager::isEnoughSpace( __int64 len )const
 	return false;
 }
 
-__int64 VirtualMemoManager::getNextEmptyPage()const
+unsigned int VirtualMemoManager::getNextEmptyPage()const
 {
 	if( m_VPages[m_currentPage + 1].m_pBegin == m_VPages[m_currentPage + 1].m_pCurrentPos )
 	{
@@ -176,4 +177,9 @@ void VirtualMemoManager::swapPagesInContainer( unsigned int first, unsigned int 
 {
 	cleanPage( second );
 	std::swap( m_VPages[first], m_VPages[second] );
+}
+
+void VirtualMemoManager::makeFullPage( unsigned int id )
+{
+	m_VPages[id].m_pCurrentPos = m_VPages[id].m_pBegin + m_pageSize;
 }

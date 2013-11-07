@@ -499,34 +499,58 @@ void MemoFile::tryPageCompresion( )
 	std::shared_ptr<VirtualMemoManager> spMng = VirtualMemoManager::getInstance();
 	if( spMng->getNumberOfPages() - spMng->getCurrentPage() >= 2 )
 	{
-		__int64 i64EmptyPage    = spMng->getNextEmptyPage();
+		unsigned int uiEmptyPage    = spMng->getNextEmptyPage();
 		__int64 i64BytesWritten = 0;
-		PBYTE page = spMng->getPageById( i64EmptyPage );
+		PBYTE page = spMng->getPageById( uiEmptyPage );
 		std::list<slice>::iterator itBegin = m_VecChanges.begin();
 		std::list<slice>::iterator it      = std::next( itBegin );
-		__int64 i64IdOldPage = (*itBegin).pageID;
+		unsigned int uiOldPage = (*itBegin).pageID;
 		__int64 i64PageSize  = spMng->getPageSize();
-		bool bmakeSwap = false;
-
+		
 		while( it != m_VecChanges.end() )
 		{
 			if( (*itBegin).buffer && (*it).buffer )//two consecutive items in container have chnages in memory
 			{
-				if( (*itBegin).pageID != i64EmptyPage )
+				if( (*itBegin).pageID != uiEmptyPage )
 				{
-					(*itBegin).pageID = i64EmptyPage;
-					memcpy( page + i64BytesWritten, (*itBegin).buffer, (*itBegin).length );
-					(*itBegin).buffer = page + i64BytesWritten;
-					i64BytesWritten += (*itBegin).length;
+					if( i64BytesWritten + (*itBegin).length < i64PageSize )
+					{
+						(*itBegin).pageID = uiEmptyPage;
+						memcpy( page + i64BytesWritten, (*itBegin).buffer, (*itBegin).length );
+						(*itBegin).buffer = page + i64BytesWritten;
+						i64BytesWritten += (*itBegin).length;
+					}
+					else
+					{
+						(*itBegin).pageID = uiOldPage;
+						spMng->swapPagesInContainer( uiEmptyPage, uiOldPage );
+						spMng->makeFullPage( uiEmptyPage );
+						uiEmptyPage    = spMng->getNextEmptyPage();
+						i64BytesWritten = 0;
+						uiOldPage = (*itBegin).pageID;
+					}
 				}
 
-				if( (*it).pageID != i64EmptyPage )
+				if( (*it).pageID != uiEmptyPage )
 				{
-					(*itBegin).length += (*it).length;
-					memcpy( page + i64BytesWritten, (*it).buffer, (*it).length );
-					i64BytesWritten += (*it).length;
-					it = m_VecChanges.erase( it );
-					bmakeSwap = true;
+					if( i64BytesWritten + (*it).length < i64PageSize )
+					{
+						(*itBegin).length += (*it).length;
+						memcpy( page + i64BytesWritten, (*it).buffer, (*it).length );
+						i64BytesWritten += (*it).length;
+						it = m_VecChanges.erase( it );
+					}
+					else
+					{
+						(*itBegin).pageID = uiOldPage;
+						spMng->swapPagesInContainer( uiEmptyPage, uiOldPage );
+						spMng->makeFullPage( uiEmptyPage );
+						uiEmptyPage    = spMng->getNextEmptyPage();
+						i64BytesWritten = 0;
+						uiOldPage = (*it).pageID;
+						itBegin = it;
+						it = std::next( it );
+					}
 				}
 				else
 				{
@@ -538,10 +562,6 @@ void MemoFile::tryPageCompresion( )
 				++itBegin;
 				++it;
 			}
-		}
-		if( bmakeSwap )
-		{
-			spMng->swapPagesInContainer( i64EmptyPage, i64IdOldPage );
 		}
 	}
 }
