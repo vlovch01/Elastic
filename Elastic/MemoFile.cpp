@@ -4,6 +4,8 @@
 #include <functional>
 #include <assert.h>
 
+const unsigned int elementsPerPage = 4;
+
 MemoFile::MemoFile( __int64 startPos, __int64 size ) : m_Compress( false ), m_PageCompress( false ), m_CommitSize( 0 )
 {
 	if( size != 0 )
@@ -43,9 +45,17 @@ __int64 MemoFile::insert  ( __int64 startPos, PBYTE buffer, __int64 size, bool o
 		tryCompresion();
 	}
 
-	if( m_PageCompress && m_VecChanges.size() >= 3)
+	if( m_PageCompress )
 	{
-		tryPageCompresion();
+		std::shared_ptr<VirtualMemoManager> spMng = VirtualMemoManager::getInstance();
+		unsigned int pageId = spMng->getCurrentPage() - 1;
+		unsigned int count  = std::count_if( m_VecChanges.begin(), m_VecChanges.end(), [&pageId](const MemoFile::slice& obj ){
+			return obj.pageID == pageId;
+		} );
+		if( count > elementsPerPage )
+		{
+			tryPageCompresion();
+		}
 	}
 	return val;
 }
@@ -489,20 +499,49 @@ void MemoFile::tryPageCompresion( )
 	std::shared_ptr<VirtualMemoManager> spMng = VirtualMemoManager::getInstance();
 	if( spMng->getNumberOfPages() - spMng->getCurrentPage() >= 2 )
 	{
-		__int64 i64EmptyPage = spMng->getNextEmptyPage();
+		__int64 i64EmptyPage    = spMng->getNextEmptyPage();
+		__int64 i64BytesWritten = 0;
 		PBYTE page = spMng->getPageById( i64EmptyPage );
 		std::list<slice>::iterator itBegin = m_VecChanges.begin();
 		std::list<slice>::iterator it      = std::next( itBegin );
-		for( ; it != m_VecChanges.end(); ++it )
-		{
-			if( (*itBegin).buffer && (*it).buffer )
-			{
+		__int64 i64IdOldPage = (*itBegin).pageID;
+		__int64 i64PageSize  = spMng->getPageSize();
+		bool bmakeSwap = false;
 
+		while( it != m_VecChanges.end() )
+		{
+			if( (*itBegin).buffer && (*it).buffer )//two consecutive items in container have chnages in memory
+			{
+				if( (*itBegin).pageID != i64EmptyPage )
+				{
+					(*itBegin).pageID = i64EmptyPage;
+					memcpy( page + i64BytesWritten, (*itBegin).buffer, (*itBegin).length );
+					(*itBegin).buffer = page + i64BytesWritten;
+					i64BytesWritten += (*itBegin).length;
+				}
+
+				if( (*it).pageID != i64EmptyPage )
+				{
+					(*itBegin).length += (*it).length;
+					memcpy( page + i64BytesWritten, (*it).buffer, (*it).length );
+					i64BytesWritten += (*it).length;
+					it = m_VecChanges.erase( it );
+					bmakeSwap = true;
+				}
+				else
+				{
+					++it;
+				}
 			}
 			else
 			{
 				++itBegin;
+				++it;
 			}
+		}
+		if( bmakeSwap )
+		{
+			spMng->swapPagesInContainer( i64EmptyPage, i64IdOldPage );
 		}
 	}
 }
